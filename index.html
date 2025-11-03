@@ -770,10 +770,90 @@
                 padding: 20px;
             }
         }
+        /* Nutki animowane */
+        .music-notes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .note {
+            position: absolute;
+            font-size: 40px;
+            opacity: 0;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .note1 {
+            top: 20%;
+            left: 15%;
+            animation-delay: 0s;
+        }
+        
+        .note2 {
+            top: 30%;
+            right: 20%;
+            animation-delay: 0.5s;
+        }
+        
+        .note3 {
+            top: 60%;
+            left: 25%;
+            animation-delay: 1s;
+        }
+        
+        .note4 {
+            top: 70%;
+            right: 15%;
+            animation-delay: 1.5s;
+        }
+        
+        .note5 {
+            top: 45%;
+            left: 10%;
+            animation-delay: 0.8s;
+        }
+        
+        .note6 {
+            top: 50%;
+            right: 10%;
+            animation-delay: 1.2s;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 0;
+            }
+            25% {
+                opacity: 0.8;
+            }
+            50% {
+                transform: translateY(-30px) rotate(15deg);
+                opacity: 1;
+            }
+            75% {
+                opacity: 0.8;
+            }
+        }
+        @media (max-width: 768px) {
+            .note {
+                font-size: 25px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="splashScreen" class="splash-screen">
+        <div class="music-notes">
+            <span class="note note1">🎵</span>
+            <span class="note note2">🎶</span>
+            <span class="note note3">🎵</span>
+            <span class="note note4">🎶</span>
+            <span class="note note5">🎵</span>
+            <span class="note note6">🎶</span>
+        </div>
         <h1 class="splash-title">🎵 Mapa Dźwiękowa Krakowa 🗺️</h1>
     </div>
     <div class="container">
