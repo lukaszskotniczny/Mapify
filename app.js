@@ -619,5 +619,6 @@ function showToast(message, icon = '✅', duration = 3000) {
         toast.classList.remove('show');
     }, duration);
 }
+loadPlaces();
     
     
