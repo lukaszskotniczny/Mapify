@@ -75,84 +75,102 @@ function getCategoryIcon(category) {
 function loadPlaces() {
     console.log('=== START loadPlaces() ===');
     
-    // PRZYKŁADOWE MIEJSCA - zawsze załaduj (tryb demo)
-    allPlaces = [
-        {
-            id: 1,
-            lat: 50.0619,
-            lng: 19.9368,
-            songTitle: "Test Song 1",
-            artist: "Test Artist",
-            category: "nostalgiczne",
-            description: "Testowe miejsce 1",
-            spotifyUrl: null,
-            albumImage: null,
-            previewUrl: null
-        },
-        {
-            id: 2,
-            lat: 50.0544,
-            lng: 19.9356,
-            songTitle: "Test Song 2",
-            artist: "Test Artist",
-            category: "bieganie",
-            description: "Testowe miejsce 2",
-            spotifyUrl: null,
-            albumImage: null,
-            previewUrl: null
-        },
-        {
-            id: 3,
-            lat: 50.0537,
-            lng: 19.9370,
-            songTitle: "Test Song 3",
-            artist: "Test Artist",
-            category: "randka",
-            description: "Testowe miejsce 3",
-            spotifyUrl: null,
-            albumImage: null,
-            previewUrl: null
-        },
-        {
-            id: 4,
-            lat: 50.0663,
-            lng: 19.9456,
-            songTitle: "Test Song 4",
-            artist: "Test Artist",
-            category: "trening",
-            description: "Testowe miejsce 4",
-            spotifyUrl: null,
-            albumImage: null,
-            previewUrl: null
-        },
-        {
-            id: 5,
-            lat: 50.0575,
-            lng: 19.9345,
-            songTitle: "Test Song 5",
-            artist: "Test Artist",
-            category: "relaks",
-            description: "Testowe miejsce 5",
-            spotifyUrl: null,
-            albumImage: null,
-            previewUrl: null
-        },
-        {
-            id: 6,
-            lat: 50.0688,
-            lng: 19.9071,
-            songTitle: "Test Song 6",
-            artist: "Test Artist",
-            category: "impreza",
-            description: "Testowe miejsce 6",
-            spotifyUrl: null,
-            albumImage: null,
-            previewUrl: null
-        }
-    ];
-    
-    console.log('Załadowano miejsc:', allPlaces.length);
-    
+    // Spróbuj załadować z backendu
+    fetch('http://localhost:5000/api/places')
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Backend niedostępny');
+            }
+        })
+        .then(places => {
+            console.log('Załadowano z backendu:', places.length, 'miejsc');
+            allPlaces = places;
+            renderMarkers();
+        })
+        .catch(error => {
+            console.log('Backend niedostępny - ładowanie przykładowych miejsc');
+            // PRZYKŁADOWE MIEJSCA - tryb demo
+            allPlaces = [
+                {
+                    id: 1,
+                    lat: 50.0619,
+                    lng: 19.9368,
+                    songTitle: "Test Song 1",
+                    artist: "Test Artist",
+                    category: "nostalgiczne",
+                    description: "Testowe miejsce 1",
+                    spotifyUrl: null,
+                    albumImage: null,
+                    previewUrl: null
+                },
+                {
+                    id: 2,
+                    lat: 50.0544,
+                    lng: 19.9356,
+                    songTitle: "Test Song 2",
+                    artist: "Test Artist",
+                    category: "bieganie",
+                    description: "Testowe miejsce 2",
+                    spotifyUrl: null,
+                    albumImage: null,
+                    previewUrl: null
+                },
+                {
+                    id: 3,
+                    lat: 50.0537,
+                    lng: 19.9370,
+                    songTitle: "Test Song 3",
+                    artist: "Test Artist",
+                    category: "randka",
+                    description: "Testowe miejsce 3",
+                    spotifyUrl: null,
+                    albumImage: null,
+                    previewUrl: null
+                },
+                {
+                    id: 4,
+                    lat: 50.0663,
+                    lng: 19.9456,
+                    songTitle: "Test Song 4",
+                    artist: "Test Artist",
+                    category: "trening",
+                    description: "Testowe miejsce 4",
+                    spotifyUrl: null,
+                    albumImage: null,
+                    previewUrl: null
+                },
+                {
+                    id: 5,
+                    lat: 50.0575,
+                    lng: 19.9345,
+                    songTitle: "Test Song 5",
+                    artist: "Test Artist",
+                    category: "relaks",
+                    description: "Testowe miejsce 5",
+                    spotifyUrl: null,
+                    albumImage: null,
+                    previewUrl: null
+                },
+                {
+                    id: 6,
+                    lat: 50.0688,
+                    lng: 19.9071,
+                    songTitle: "Test Song 6",
+                    artist: "Test Artist",
+                    category: "impreza",
+                    description: "Testowe miejsce 6",
+                    spotifyUrl: null,
+                    albumImage: null,
+                    previewUrl: null
+                }
+            ];
+            renderMarkers();
+        });
+}
+
+function renderMarkers() {
     // Usuń wszystkie markery
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
