@@ -1,7 +1,7 @@
 
-const SUPABASE_URL = 'https://kzvyvbluisghdeajkttd.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dnl2Ymx1aXNnaGRlYWprdHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTE3ODYsImV4cCI6MjA3Nzk4Nzc4Nn0.SS2c25L_NAfgijyt6nmS3bOVqc73Gtmq6aQk91MHZtU';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+//const SUPABASE_URL = 'https://kzvyvbluisghdeajkttd.supabase.co';
+//const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dnl2Ymx1aXNnaGRlYWprdHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTE3ODYsImV4cCI6MjA3Nzk4Nzc4Nn0.SS2c25L_NAfgijyt6nmS3bOVqc73Gtmq6aQk91MHZtU';
+//const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Generate unique user ID (localStorage)
 let userId = localStorage.getItem('userId');
