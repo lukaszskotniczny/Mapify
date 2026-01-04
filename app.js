@@ -10,7 +10,7 @@ if (!userId) {
     localStorage.setItem('userId', userId);
 }
 const map = L.map('map', {
-    attributionControl: false  // Wyłącz kontrolkę attribution
+    attributionControl: false
 }).setView([50.0614, 19.9366], 13);
 
 // DODAJ WARSTWY OD RAZU NA POCZĄTKU
