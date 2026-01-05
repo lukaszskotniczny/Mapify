@@ -1,6 +1,6 @@
 # Mapify
 
-**Interaktywna aplikacja webowa do zapisywania i odkrywania miejsc połączonych z muzyką.** Każde miejsce ma przypisany utwór z Spotify, kategorię wspomnień oraz możliwość dodawania komentarzy i polubieniów przez społeczność.
+**Interaktywna aplikacja webowa do zapisywania i odkrywania miejsc połączonych z muzyką.** Każde miejsce ma przypisany utwór z Spotify, kategorię wspomnień oraz możliwość dodawania komentarzy i polubień przez społeczność.
 ![Mapify](screenshot.png)
 **Live Demo:** https://lukaszskotniczny.github.io/Mapify/
 
@@ -26,7 +26,7 @@
 - Kategorie: Bieganie, Randka, Nostalgiczne, Trening, Relaks, Impreza, Inne
 
 ### Social Features
-- System polubieniów współdzielony między użytkownikami
+- System polubień współdzielony między użytkownikami
 - Komentarze z datą i imieniem autora
 - Realtime synchronizacja przez Supabase
 - Unikalne ID użytkownika przechowywane w localStorage
@@ -66,10 +66,9 @@
 
 ### Wymagania
 - Python 3.8 lub nowszy
-- Konto Spotify Developer (darmowe)
-- Nowoczesna przeglądarka internetowa
+- Konto Spotify Developer
 
-### Backend (opcjonalnie)
+### Backend
 ```bash
 cd backend
 pip install -r requirements.txt
@@ -82,13 +81,13 @@ Backend uruchomi się na `http://localhost:5000`
 
 Otwórz plik `index.html` w przeglądarce lub użyj Live Server w VS Code.
 
-**Uwaga:** Funkcje społecznościowe działają z Supabase bez potrzeby uruchamiania backendu lokalnie.
+**Funkcje społecznościowe działają z Supabase bez potrzeby uruchamiania backendu lokalnie.**
 
 ## Kategorie Miejsc
 
 - **Bieganie** - miejsca związane z aktywnością fizyczną
 - **Randka** - romantyczne miejsca
-- **Nostalgiczne** - miejsca pełne wspomnień
+- **Nostalgiczne** - miejsca związane z wspomnieniami
 - **Trening** - miejsca treningowe i siłownie
 - **Relaks** - miejsca do odpoczynku
 - **Impreza** - miejsca imprezowe
@@ -128,3 +127,4 @@ MIT License
 
 **Live Demo:** https://lukaszskotniczny.github.io/Mapify/  
 **Repozytorium:** https://github.com/lukaszskotniczny/mapify
+
