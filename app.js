@@ -921,3 +921,83 @@ allPlaces.forEach(async (place) => {
         await loadComments(place.id);
     });
 loadPlaces();
+// ===== LOGOWANIE =====
+let currentUser = null;
+let authMode = 'login'; // 'login' albo 'register'
+
+async function initAuth() {
+    const { data } = await db.auth.getSession();
+    currentUser = data.session ? data.session.user : null;
+    updateAuthUI();
+
+    // reaguj na zalogowanie / wylogowanie
+    db.auth.onAuthStateChange((event, session) => {
+        currentUser = session ? session.user : null;
+        updateAuthUI();
+    });
+}
+
+function updateAuthUI() {
+    const btn = document.getElementById('authBtn');
+    const emailSpan = document.getElementById('userEmail');
+
+    if (currentUser) {
+        btn.textContent = 'Wyloguj';
+        emailSpan.textContent = currentUser.email;
+    } else {
+        btn.textContent = 'Zaloguj';
+        emailSpan.textContent = '';
+    }
+}
+
+async function handleAuthButton() {
+    if (currentUser) {
+        await db.auth.signOut();
+    } else {
+        openAuthModal();
+    }
+}
+
+function openAuthModal() {
+    document.getElementById('authModal').style.display = 'block';
+}
+
+function closeAuthModal() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('authEmail').value = '';
+    document.getElementById('authPassword').value = '';
+}
+
+function toggleAuthMode() {
+    authMode = authMode === 'login' ? 'register' : 'login';
+    const isLogin = authMode === 'login';
+
+    document.getElementById('authTitle').textContent = isLogin ? 'Logowanie' : 'Rejestracja';
+    document.getElementById('authSubmit').textContent = isLogin ? 'Zaloguj' : 'Zarejestruj';
+    document.getElementById('authSwitch').textContent = isLogin
+        ? 'Nie masz konta? Zarejestruj się'
+        : 'Masz już konto? Zaloguj się';
+}
+
+async function submitAuth() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+
+    if (!email || !password) {
+        alert('Podaj email i hasło');
+        return;
+    }
+
+    const { error } = authMode === 'login'
+        ? await db.auth.signInWithPassword({ email, password })
+        : await db.auth.signUp({ email, password });
+
+    if (error) {
+        alert('Błąd: ' + error.message);
+        return;
+    }
+
+    closeAuthModal();
+}
+
+initAuth();
