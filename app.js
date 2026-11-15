@@ -1,7 +1,7 @@
 
-//const SUPABASE_URL = 'https://kzvyvbluisghdeajkttd.supabase.co';
-//const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dnl2Ymx1aXNnaGRlYWprdHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTE3ODYsImV4cCI6MjA3Nzk4Nzc4Nn0.SS2c25L_NAfgijyt6nmS3bOVqc73Gtmq6aQk91MHZtU';
-//const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = 'https://kzvyvbluisghdeajkttd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dnl2Ymx1aXNnaGRlYWprdHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTE3ODYsImV4cCI6MjA3Nzk4Nzc4Nn0.SS2c25L_NAfgijyt6nmS3bOVqc73Gtmq6aQk91MHZtU';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Generate unique user ID (localStorage)
 let userId = localStorage.getItem('userId');
@@ -756,7 +756,7 @@ function showToast(message, icon = '✅', duration = 3000) {
 async function toggleLike(placeId) {
     try {
         // Sprawdź czy użytkownik już polubił
-        const { data: existingLike } = await supabase
+        const { data: existingLike } = await db
             .from('likes')
             .select('id')
             .eq('place_id', placeId)
@@ -765,7 +765,7 @@ async function toggleLike(placeId) {
         
         if (existingLike) {
             // Usuń polubienie
-            await supabase
+            await db
                 .from('likes')
                 .delete()
                 .eq('place_id', placeId)
@@ -774,7 +774,7 @@ async function toggleLike(placeId) {
             showToast('💔 Usunięto polubienie', '👍');
         } else {
             // Dodaj polubienie
-            await supabase
+            await db
                 .from('likes')
                 .insert({ place_id: placeId, user_id: userId });
             
@@ -791,7 +791,7 @@ async function toggleLike(placeId) {
 
 async function getLikeCount(placeId) {
     try {
-        const { data, count } = await supabase
+        const { data, count } = await db
             .from('likes')
             .select('*', { count: 'exact', head: true })
             .eq('place_id', placeId);
@@ -805,7 +805,7 @@ async function getLikeCount(placeId) {
 
 async function isLikedByUser(placeId) {
     try {
-        const { data } = await supabase
+        const { data } = await db
             .from('likes')
             .select('id')
             .eq('place_id', placeId)
@@ -831,7 +831,7 @@ async function updateLikeCount(placeId) {
 // Komentarze
 async function addComment(placeId, userName, commentText) {
     try {
-        await supabase
+        await db
             .from('comments')
             .insert({
                 place_id: placeId,
@@ -850,7 +850,7 @@ async function addComment(placeId, userName, commentText) {
 
 async function loadComments(placeId) {
     try {
-        const { data: comments } = await supabase
+        const { data: comments } = await db
             .from('comments')
             .select('*')
             .eq('place_id', placeId)
@@ -876,7 +876,7 @@ async function loadComments(placeId) {
 
 async function getTopPlaces() {
     try {
-        const { data: likes } = await supabase
+        const { data: likes } = await db
             .from('likes')
             .select('place_id');
         
