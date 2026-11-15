@@ -953,7 +953,7 @@ function updateAuthUI() {
 async function handleAuthButton() {
     if (currentUser) {
         await db.auth.signOut();
-        showToast('Wylogowano', '👋');
+        showAuthSplash('🎵', 'Do zobaczenia!', 'Wylogowano pomyślnie');
     } else {
         openAuthModal();
     }
@@ -964,12 +964,14 @@ function openAuthModal() {
 }
 
 function closeAuthModal() {
+    hideAuthError();
     document.getElementById('authModal').style.display = 'none';
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
 }
 
 function toggleAuthMode() {
+    hideAuthError();
     authMode = authMode === 'login' ? 'register' : 'login';
     const isLogin = authMode === 'login';
 
@@ -984,8 +986,10 @@ async function submitAuth() {
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
 
+    hideAuthError();
+
     if (!email || !password) {
-        alert('Podaj email i hasło');
+        showAuthError('Podaj email i hasło');
         return;
     }
 
@@ -994,12 +998,58 @@ async function submitAuth() {
         : await db.auth.signUp({ email, password });
 
     if (error) {
-        alert('Błąd: ' + error.message);
+        showAuthError(translateAuthError(error.message));
         return;
     }
 
-    closeAuthModal();
-    showToast('Zalogowano!', '✅');
+        closeAuthModal();
+    const name = email.split('@')[0];
+    if (authMode === 'login') {
+        showAuthSplash('👋', `Witaj, ${name}!`, 'Zalogowano pomyślnie');
+    } else {
+        showAuthSplash('🎉', 'Witaj w Mapify!', 'Konto zostało utworzone');
+    }
+}
+
+function showAuthError(message) {
+    const el = document.getElementById('authError');
+    el.textContent = message;
+    el.style.display = 'block';
+}
+
+function hideAuthError() {
+    document.getElementById('authError').style.display = 'none';
+}
+
+// Tłumaczenie komunikatów Supabase na polski
+function translateAuthError(message) {
+    if (message.includes('Invalid login credentials')) return 'Nieprawidłowy email lub hasło';
+    if (message.includes('already registered')) return 'Konto z tym emailem już istnieje';
+    if (message.includes('at least 6 characters')) return 'Hasło musi mieć co najmniej 6 znaków';
+    if (message.includes('valid email') || message.includes('invalid format')) return 'Podaj poprawny adres email';
+    if (message.includes('rate limit')) return 'Za dużo prób. Spróbuj za chwilę';
+    return 'Coś poszło nie tak. Spróbuj ponownie';
+}
+['authEmail', 'authPassword'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitAuth();
+    });
+});
+// Animacja zalogowania / wylogowania
+function showAuthSplash(icon, title, text) {
+    const splash = document.getElementById('authSplash');
+    document.getElementById('authSplashIcon').textContent = icon;
+    document.getElementById('authSplashTitle').textContent = title;
+    document.getElementById('authSplashText').textContent = text;
+
+    // restart animacji ikony
+    const iconEl = document.getElementById('authSplashIcon');
+    iconEl.style.animation = 'none';
+    iconEl.offsetHeight;
+    iconEl.style.animation = '';
+
+    splash.classList.add('show');
+    setTimeout(() => splash.classList.remove('show'), 1800);
 }
 
 // ===== START =====
