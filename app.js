@@ -3,12 +3,6 @@ const SUPABASE_URL = 'https://kzvyvbluisghdeajkttd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dnl2Ymx1aXNnaGRlYWprdHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTE3ODYsImV4cCI6MjA3Nzk4Nzc4Nn0.SS2c25L_NAfgijyt6nmS3bOVqc73Gtmq6aQk91MHZtU';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Generate unique user ID (localStorage)
-let userId = localStorage.getItem('userId');
-if (!userId) {
-    userId = 'user_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('userId', userId);
-}
 const map = L.map('map', {
     attributionControl: false
 }).setView([50.0614, 19.9366], 13);
@@ -232,8 +226,7 @@ function renderMarkers() {
                             Ładowanie...
                         </div>
                         
-                        <input type="text" id="comment-name-${place.id}" placeholder="Twoje imię" 
-                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px;">
+                               
                         
                         <textarea id="comment-text-${place.id}" placeholder="Dodaj komentarz..." 
                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px; resize: none;" 
@@ -753,37 +746,51 @@ function showToast(message, icon = '✅', duration = 3000) {
     }, duration);
 }
 
+// ===== LOGOWANIE: stan =====
+let currentUser = null;
+let authMode = 'login'; // 'login' albo 'register'
+
+// Zabezpieczenie przed wstrzyknięciem HTML w komentarzach
+function safeText(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ===== POLUBIENIA =====
 async function toggleLike(placeId) {
+    if (!currentUser) {
+        showToast('Zaloguj się, żeby polubić miejsce', '🔒');
+        openAuthModal();
+        return;
+    }
+
     try {
-        // Sprawdź czy użytkownik już polubił
         const { data: existingLike } = await db
             .from('likes')
             .select('id')
             .eq('place_id', placeId)
-            .eq('user_id', userId)
+            .eq('user_id', currentUser.id)
             .maybeSingle();
-        
+
         if (existingLike) {
-            // Usuń polubienie
             await db
                 .from('likes')
                 .delete()
                 .eq('place_id', placeId)
-                .eq('user_id', userId);
-            
+                .eq('user_id', currentUser.id);
+
             showToast('💔 Usunięto polubienie', '👍');
         } else {
-            // Dodaj polubienie
             await db
                 .from('likes')
-                .insert({ place_id: placeId, user_id: userId });
-            
+                .insert({ place_id: placeId, user_id: currentUser.id });
+
             showToast('❤️ Polubiono miejsce!', '👍');
         }
-        
-        // Odśwież licznik
+
         await updateLikeCount(placeId);
-        
+
     } catch (error) {
         console.error('Błąd polubienia:', error);
     }
@@ -791,27 +798,29 @@ async function toggleLike(placeId) {
 
 async function getLikeCount(placeId) {
     try {
-        const { data, count } = await db
+        const { count } = await db
             .from('likes')
             .select('*', { count: 'exact', head: true })
             .eq('place_id', placeId);
-        
+
         return count || 0;
     } catch (error) {
-        console.error('Błąd pobierania polubiień:', error);
+        console.error('Błąd pobierania polubień:', error);
         return 0;
     }
 }
 
 async function isLikedByUser(placeId) {
+    if (!currentUser) return false; // gość nigdy nie ma polubień
+
     try {
         const { data } = await db
             .from('likes')
             .select('id')
             .eq('place_id', placeId)
-            .eq('user_id', userId)
-            .maybeSingle();  // ← ZMIANA: .single() na .maybeSingle()
-        
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
         return !!data;
     } catch {
         return false;
@@ -821,33 +830,35 @@ async function isLikedByUser(placeId) {
 async function updateLikeCount(placeId) {
     const count = await getLikeCount(placeId);
     const isLiked = await isLikedByUser(placeId);
-    
+
     const likeBtn = document.querySelector(`#like-btn-${placeId}`);
     if (likeBtn) {
         likeBtn.innerHTML = `${isLiked ? '❤️' : '🤍'} ${count} ${count === 1 ? 'polubienie' : 'polubienia'}`;
     }
 }
 
-// Komentarze
-async function addComment(placeId, userName, commentText) {
+// ===== KOMENTARZE =====
+async function addComment(placeId, commentText) {
     try {
-        await db
+        const { error } = await db
             .from('comments')
             .insert({
                 place_id: placeId,
-                user_name: userName,
+                user_id: currentUser.id,
+                user_name: currentUser.email.split('@')[0], // podpis = część emaila przed @
                 comment_text: commentText
             });
-        
+
+        if (error) throw error;
+
         showToast('💬 Komentarz dodany!', '✅');
         await loadComments(placeId);
-        
+
     } catch (error) {
         console.error('Błąd dodawania komentarza:', error);
         showToast('❌ Błąd dodawania komentarza', '⚠️');
     }
 }
-
 async function loadComments(placeId) {
     try {
         const { data: comments } = await db
@@ -855,23 +866,42 @@ async function loadComments(placeId) {
             .select('*')
             .eq('place_id', placeId)
             .order('created_at', { ascending: false });
-        
+
         const commentsDiv = document.querySelector(`#comments-${placeId}`);
         if (commentsDiv && comments && comments.length > 0) {
             commentsDiv.innerHTML = comments.map(c => `
                 <div style="background: #f5f5f5; padding: 8px; border-radius: 5px; margin-bottom: 8px;">
-                    <strong>${c.user_name}</strong>
-                    <p style="margin: 5px 0;">${c.comment_text}</p>
+                    <strong>${safeText(c.user_name)}</strong>
+                    <p style="margin: 5px 0;">${safeText(c.comment_text)}</p>
                     <small style="color: #999;">${new Date(c.created_at).toLocaleString('pl-PL')}</small>
                 </div>
             `).join('');
         } else if (commentsDiv) {
             commentsDiv.innerHTML = '<p style="color: #999; font-size: 12px;">Brak komentarzy</p>';
         }
-        
+
     } catch (error) {
         console.error('Błąd ładowania komentarzy:', error);
     }
+}
+
+async function submitComment(placeId) {
+    if (!currentUser) {
+        showToast('Zaloguj się, żeby dodać komentarz', '🔒');
+        openAuthModal();
+        return;
+    }
+
+    const textInput = document.getElementById(`comment-text-${placeId}`);
+    const commentText = textInput.value.trim();
+
+    if (!commentText) {
+        showToast('⚠️ Napisz komentarz!', '⚠️');
+        return;
+    }
+
+    await addComment(placeId, commentText);
+    textInput.value = '';
 }
 
 async function getTopPlaces() {
@@ -879,58 +909,28 @@ async function getTopPlaces() {
         const { data: likes } = await db
             .from('likes')
             .select('place_id');
-        
-        // Policz polubienia dla każdego miejsca
+
         const likeCounts = {};
         likes.forEach(like => {
             likeCounts[like.place_id] = (likeCounts[like.place_id] || 0) + 1;
         });
-        
-        // Sortuj miejsca po liczbie polubiień
-        const sortedPlaces = Object.entries(likeCounts)
+
+        return Object.entries(likeCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5);
-        
-        return sortedPlaces;
-        
+
     } catch (error) {
         console.error('Błąd pobierania top miejsc:', error);
         return [];
     }
 }
-async function submitComment(placeId) {
-    const nameInput = document.getElementById(`comment-name-${placeId}`);
-    const textInput = document.getElementById(`comment-text-${placeId}`);
-    
-    const userName = nameInput.value.trim();
-    const commentText = textInput.value.trim();
-    
-    if (!userName || !commentText) {
-        showToast('⚠️ Wypełnij imię i komentarz!', '⚠️');
-        return;
-    }
-    
-    await addComment(placeId, userName, commentText);
-    
-    // Wyczyść pola
-    nameInput.value = '';
-    textInput.value = '';
-}
-allPlaces.forEach(async (place) => {
-        await updateLikeCount(place.id);
-        await loadComments(place.id);
-    });
-loadPlaces();
-// ===== LOGOWANIE =====
-let currentUser = null;
-let authMode = 'login'; // 'login' albo 'register'
 
+// ===== LOGOWANIE: funkcje =====
 async function initAuth() {
     const { data } = await db.auth.getSession();
     currentUser = data.session ? data.session.user : null;
     updateAuthUI();
 
-    // reaguj na zalogowanie / wylogowanie
     db.auth.onAuthStateChange((event, session) => {
         currentUser = session ? session.user : null;
         updateAuthUI();
@@ -953,6 +953,7 @@ function updateAuthUI() {
 async function handleAuthButton() {
     if (currentUser) {
         await db.auth.signOut();
+        showToast('Wylogowano', '👋');
     } else {
         openAuthModal();
     }
@@ -998,6 +999,9 @@ async function submitAuth() {
     }
 
     closeAuthModal();
+    showToast('Zalogowano!', '✅');
 }
 
+// ===== START =====
 initAuth();
+loadPlaces();
