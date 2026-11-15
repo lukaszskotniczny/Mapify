@@ -1391,6 +1391,40 @@
 .modal-content::-webkit-scrollbar-thumb:hover {
     background: #667eea;
 }
+/* ===== PŁYWAJĄCY PRZYCISK DODAWANIA ===== */
+.add-place-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 32px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    z-index: 1500;
+    transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.add-place-fab:hover {
+    transform: scale(1.08);
+}
+
+/* Tryb wybierania miejsca: przycisk zmienia się w "anuluj" */
+.add-place-fab.active {
+    background: #e74c3c;
+    transform: rotate(45deg);
+    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
+}
+
+/* Celownik nad mapą w trybie wybierania */
+#map.picking {
+    cursor: crosshair;
+}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
@@ -1424,7 +1458,7 @@
             </div>
         </div>
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-            🎵 <strong>Kliknij dwukrotnie na mapę</strong>, żeby dodać miejsce ze swoją muzyką. Zaloguj się, żeby polubić i komentować.
+            🎵 <strong>Kliknij ＋ albo dwukrotnie na mapę</strong>, żeby dodać miejsce ze swoją muzyką.
             <a href="https://github.com/lukaszskotniczny/mapify" target="_blank" style="color: white; text-decoration: underline; margin-left: 10px;">
                 Kod na GitHub
             </a>
@@ -1567,6 +1601,7 @@
         </div>
     </div>
 </div>
+<button id="addPlaceBtn" class="add-place-fab" onclick="toggleAddPlaceMode()" title="Dodaj miejsce">＋</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         </div>
@@ -1606,7 +1641,7 @@
        <!-- Modal do dodawania miejsca -->
         <div id="addPlaceModal" class="modal">
             <div class="modal-content">
-                <span class="close">&times;</span>
+                <span class="close" onclick="closeAddPlaceModal()">&times;</span>
                 <h2>🎵 Dodaj miejsce muzyczne</h2>
                 <form id="addPlaceForm">
                     <div class="form-group">
@@ -1678,6 +1713,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

@@ -287,22 +287,49 @@ async function addPlace(lat, lng, songTitle, artist, category, description, spot
 
 
 
-map.on('dblclick', function(e) {
+// Otwiera formularz dodawania dla wskazanego punktu
+function openAddPlaceForm(latlng) {
     if (!currentUser) {
         showToast('Zaloguj się, żeby dodać miejsce', '🔒');
         openAuthModal();
         return;
     }
 
-    currentLat = e.latlng.lat;
-    currentLng = e.latlng.lng;
+    currentLat = latlng.lat;
+    currentLng = latlng.lng;
     modal.style.display = 'block';
-});
-closeBtn.onclick = function() {
-    stopPreview();
-    modal.style.display = 'none';
-    form.reset();
 }
+
+// Komputer: dwuklik na mapę
+map.on('dblclick', function(e) {
+    openAddPlaceForm(e.latlng);
+});
+
+// Przycisk ＋ (głównie telefon): włącz tryb wybierania, potem stuknięcie w mapę
+let addPlaceMode = false;
+
+function toggleAddPlaceMode() {
+    if (!addPlaceMode && !currentUser) {
+        showToast('Zaloguj się, żeby dodać miejsce', '🔒');
+        openAuthModal();
+        return;
+    }
+
+    addPlaceMode = !addPlaceMode;
+    document.getElementById('addPlaceBtn').classList.toggle('active', addPlaceMode);
+    document.getElementById('map').classList.toggle('picking', addPlaceMode);
+
+    if (addPlaceMode) {
+        map.closePopup();
+        showToast('Stuknij na mapie miejsce, które chcesz dodać', '📍', 4000);
+    }
+}
+
+map.on('click', function(e) {
+    if (!addPlaceMode) return;
+    toggleAddPlaceMode();       // wyłącz tryb wybierania
+    openAddPlaceForm(e.latlng); // otwórz formularz z tą lokalizacją
+});
 
 window.onclick = function(event) {
     if (event.target == modal) {
@@ -864,6 +891,7 @@ function updateAuthUI() {
 async function handleAuthButton() {
     if (currentUser) {
          closeProfile();
+         if (addPlaceMode) toggleAddPlaceMode();
         await db.auth.signOut();
         showAuthSplash('🎵', 'Do zobaczenia!', 'Wylogowano pomyślnie');
     } else {
@@ -1342,6 +1370,11 @@ function stopPlacePreview() {
 
 placeAudio.addEventListener('ended', stopPlacePreview); // koniec fragmentu
 map.on('popupclose', stopPlacePreview);                 // zamknięcie popupu = cisza
+function closeAddPlaceModal() {
+    stopPreview();
+    modal.style.display = 'none';
+    form.reset();
+}
 // ===== START =====
 initAuth();
 loadPlaces();
