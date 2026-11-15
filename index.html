@@ -1425,6 +1425,109 @@
 #map.picking {
     cursor: crosshair;
 }
+/* ===== WYSZUKIWARKA NA MAPIE ===== */
+.geo-search {
+    position: relative;
+    width: 320px;
+}
+
+.geo-search input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 15px;
+    border: none;
+    border-radius: 25px;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    outline: none;
+}
+
+.geo-search input:focus {
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+}
+
+.geo-search-results {
+    display: none;
+    margin-top: 6px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.geo-search-results.show {
+    display: block;
+}
+
+.geo-result {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s;
+}
+
+.geo-result:last-child {
+    border-bottom: none;
+}
+
+.geo-result:hover {
+    background: #ecebfa;
+}
+
+.geo-result strong {
+    display: block;
+    font-size: 14px;
+    color: #333;
+}
+
+.geo-result small {
+    color: #888;
+    font-size: 12px;
+}
+
+.geo-empty {
+    padding: 12px 15px;
+    color: #999;
+    text-align: center;
+}
+
+/* Znacznik wyszukanego miejsca */
+.search-pin {
+    font-size: 34px;
+    line-height: 1;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.4));
+    animation: searchPinDrop 0.5s ease;
+}
+
+@keyframes searchPinDrop {
+    0%   { transform: translateY(-30px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+.geo-add-btn {
+    margin-top: 8px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Telefon: wyszukiwarka na prawie całą szerokość */
+@media (max-width: 768px) {
+    .geo-search {
+        width: calc(100vw - 90px);
+    }
+}
+
+/* Tryb nocny */
+.dark-mode .geo-search input,
+.dark-mode .geo-search-results { background: #1e1e2e; color: #eee; }
+.dark-mode .geo-result { border-bottom-color: #333; }
+.dark-mode .geo-result:hover { background: #34344a; }
+.dark-mode .geo-result strong { color: #eee; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">

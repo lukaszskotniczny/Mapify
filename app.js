@@ -1375,6 +1375,139 @@ function closeAddPlaceModal() {
     modal.style.display = 'none';
     form.reset();
 }
+// ===== WYSZUKIWARKA MIEJSC NA MAPIE (geokodowanie, Photon / OpenStreetMap) =====
+let geoSearchTimeout;
+let geoFound = [];
+let searchMarker = null;
+let searchLatLng = null;
+
+// Pole wyszukiwania jako kontrolka mapy (prawy górny róg)
+const GeoSearchControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function() {
+        const div = L.DomUtil.create('div', 'geo-search');
+        div.innerHTML = `
+            <input type="text" id="geoSearchInput"
+                   placeholder="🔎 Szukaj na mapie (siłownia, ulica, park...)" autocomplete="off">
+            <div id="geoSearchResults" class="geo-search-results"></div>
+        `;
+        // Kliknięcia i przewijanie w wyszukiwarce nie ruszają mapy
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        return div;
+    }
+});
+map.addControl(new GeoSearchControl());
+
+const geoInput = document.getElementById('geoSearchInput');
+const geoResults = document.getElementById('geoSearchResults');
+
+geoInput.addEventListener('input', () => {
+    clearTimeout(geoSearchTimeout);
+    const q = geoInput.value.trim();
+
+        if (q.length < 3) {
+        geoResults.classList.remove('show');
+        geoResults.innerHTML = '';
+        if (q.length === 0) clearSearchMarker(); // puste pole = znika pinezka
+        return;
+    }
+
+    geoSearchTimeout = setTimeout(() => searchLocations(q), 400);
+});
+
+async function searchLocations(q) {
+    try {
+        // Wyniki najbliżej aktualnego widoku mapy są wyżej na liście
+        const center = map.getCenter();
+        const res = await fetch(
+            `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lat=${center.lat}&lon=${center.lng}`
+        );
+        const data = await res.json();
+        geoFound = data.features || [];
+
+        if (geoFound.length === 0) {
+            geoResults.innerHTML = '<div class="geo-empty">Nic nie znaleziono</div>';
+            geoResults.classList.add('show');
+            return;
+        }
+
+        geoResults.innerHTML = geoFound.map((f, i) => {
+            const p = f.properties;
+            const title = p.name || [p.street, p.housenumber].filter(Boolean).join(' ') || 'Bez nazwy';
+            const address = [
+                p.name && p.street ? [p.street, p.housenumber].filter(Boolean).join(' ') : '',
+                p.city || p.county,
+                p.country
+            ].filter(Boolean).join(', ');
+
+            return `
+                <div class="geo-result" onclick="chooseLocation(${i})">
+                    <strong>${safeText(title)}</strong>
+                    <small>${safeText(address)}</small>
+                </div>
+            `;
+        }).join('');
+        geoResults.classList.add('show');
+
+    } catch (error) {
+        console.error('Błąd wyszukiwania lokalizacji:', error);
+        showToast('Nie udało się wyszukać miejsca', '⚠️');
+    }
+}
+
+function chooseLocation(index) {
+    const f = geoFound[index];
+    const [lng, lat] = f.geometry.coordinates; // GeoJSON: najpierw długość, potem szerokość
+    const name = f.properties.name || f.properties.street || 'Wybrane miejsce';
+
+    geoResults.classList.remove('show');
+    geoInput.value = name;
+    searchLatLng = L.latLng(lat, lng);
+
+    if (searchMarker) map.removeLayer(searchMarker);
+
+    searchMarker = L.marker(searchLatLng, {
+        icon: L.divIcon({
+            className: 'search-pin',
+            html: '📍',
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -34]
+        })
+    }).addTo(map);
+
+    searchMarker.bindPopup(`
+        <div style="text-align: center;">
+            <strong>${safeText(name)}</strong><br>
+            <button class="geo-add-btn" onclick="addHereFromSearch()">＋ Dodaj tu swoją muzykę</button>
+        </div>
+    `);
+
+    // Popup otwieramy po zakończeniu lotu, żeby się nie rozjechał
+    map.once('moveend', () => searchMarker && searchMarker.openPopup());
+    map.flyTo(searchLatLng, 17, { duration: 1.2 });
+}
+
+function clearSearchMarker() {
+    if (searchMarker) {
+        map.removeLayer(searchMarker);
+        searchMarker = null;
+    }
+}
+
+function addHereFromSearch() {
+    if (!searchLatLng) return;
+    map.closePopup();
+    openAddPlaceForm(searchLatLng);
+    clearSearchMarker();
+    geoInput.value = '';
+}
+
+// Kliknięcie poza wyszukiwarką chowa listę podpowiedzi
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.geo-search')) geoResults.classList.remove('show');
+});
 // ===== START =====
 initAuth();
 loadPlaces();
