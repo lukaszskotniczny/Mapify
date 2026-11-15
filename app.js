@@ -964,6 +964,7 @@ function updateAuthUI() {
 
 async function handleAuthButton() {
     if (currentUser) {
+         closeProfile();
         await db.auth.signOut();
         showAuthSplash('🎵', 'Do zobaczenia!', 'Wylogowano pomyślnie');
     } else {
@@ -1081,7 +1082,244 @@ function showAuthSplash(icon, title, text) {
     splash.classList.add('show');
     setTimeout(() => splash.classList.remove('show'), 1800);
 }
+// ===== PROFIL UŻYTKOWNIKA =====
 
+function openProfile() {
+    if (!currentUser) return;
+    document.getElementById('profilePanel').classList.add('open');
+    switchProfileTab('liked');
+    loadProfile();
+}
+
+function closeProfile() {
+    document.getElementById('profilePanel').classList.remove('open');
+}
+
+function switchProfileTab(tab) {
+    ['liked', 'comments', 'settings'].forEach(t => {
+        document.getElementById(`profileTab-${t}`).style.display = t === tab ? 'block' : 'none';
+    });
+    document.querySelectorAll('.profile-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+}
+
+// Nazwa miejsca po ID (miejsca są ładowane z backendu do allPlaces)
+function getPlaceLabel(placeId) {
+    const place = allPlaces.find(p => Number(p.id) === Number(placeId));
+    return place
+        ? { title: place.songTitle, artist: place.artist }
+        : { title: `Miejsce #${placeId}`, artist: 'niedostępne' };
+}
+
+async function loadProfile() {
+    const nick = getDisplayName();
+
+    // Nagłówek
+    document.getElementById('profileAvatar').textContent = nick.charAt(0).toUpperCase();
+    document.getElementById('profileNick').textContent = nick;
+    const since = new Date(currentUser.created_at)
+        .toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+    document.getElementById('profileSince').textContent = `W Mapify od: ${since}`;
+
+    // Dane z bazy
+    const { data: likes } = await db
+        .from('likes')
+        .select('place_id, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+    const { data: comments } = await db
+        .from('comments')
+        .select('id, place_id, comment_text, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+    // Statystyki
+    document.getElementById('statLikes').textContent = likes ? likes.length : 0;
+    document.getElementById('statComments').textContent = comments ? comments.length : 0;
+
+    // Polubione
+    const likedDiv = document.getElementById('profileTab-liked');
+    if (!likes || likes.length === 0) {
+        likedDiv.innerHTML = '<p class="profile-empty">Nie polubiłeś jeszcze żadnego miejsca 🤍</p>';
+    } else {
+        likedDiv.innerHTML = likes.map(like => {
+            const p = getPlaceLabel(like.place_id);
+            return `
+                <div class="profile-item" onclick="goToPlace(${like.place_id})">
+                    <strong>❤️ ${safeText(p.title)}</strong><br>
+                    <small>${safeText(p.artist)}</small>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Komentarze
+    const commentsDiv = document.getElementById('profileTab-comments');
+    if (!comments || comments.length === 0) {
+        commentsDiv.innerHTML = '<p class="profile-empty">Nie dodałeś jeszcze żadnego komentarza 💬</p>';
+    } else {
+        commentsDiv.innerHTML = comments.map(c => {
+            const p = getPlaceLabel(c.place_id);
+            return `
+                <div class="profile-item" onclick="goToPlace(${c.place_id})">
+                    <button class="profile-delete-btn"
+                            onclick="event.stopPropagation(); deleteMyComment(${c.id}, ${c.place_id})">🗑️ Usuń</button>
+                    <strong>${safeText(p.title)}</strong>
+                    <p style="margin: 6px 0;">${safeText(c.comment_text)}</p>
+                    <small>${new Date(c.created_at).toLocaleString('pl-PL')}</small>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Lot do miejsca na mapie i otwarcie popupu
+function goToPlace(placeId) {
+    const place = allPlaces.find(p => Number(p.id) === Number(placeId));
+    if (!place) {
+        showToast('Tego miejsca nie ma teraz na mapie', '⚠️');
+        return;
+    }
+
+    if (window.innerWidth < 768) closeProfile(); // na telefonie panel zasłania mapę
+
+    map.flyTo([place.lat, place.lng], 16, { duration: 1.2 });
+
+    setTimeout(() => {
+        const marker = markers.find(m => {
+            const ll = m.getLatLng();
+            return Math.abs(ll.lat - place.lat) < 0.0001 && Math.abs(ll.lng - place.lng) < 0.0001;
+        });
+        if (marker) marker.openPopup();
+    }, 1300);
+}
+
+async function deleteMyComment(commentId, placeId) {
+    if (!confirm('Usunąć ten komentarz?')) return;
+
+    const { error } = await db
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', currentUser.id);
+
+    if (error) {
+        showToast('❌ Nie udało się usunąć komentarza', '⚠️');
+        return;
+    }
+
+    showToast('🗑️ Komentarz usunięty', '✅');
+    loadProfile();
+    loadComments(placeId); // odśwież popup, jeśli jest otwarty
+}
+
+function showNickMessage(text, success) {
+    const el = document.getElementById('nickMessage');
+    el.textContent = text;
+    el.style.display = 'block';
+    el.style.color = success ? '#27ae60' : '#e74c3c';
+    el.style.background = success ? '#eafaf1' : '#fdecea';
+}
+
+async function changeNickname() {
+    const input = document.getElementById('newNickname');
+    const nickname = input.value.trim();
+
+    if (!/^[a-zA-Z0-9_ąćęłńóśźżĄĆĘŁŃÓŚŹŻ-]{3,20}$/.test(nickname)) {
+        showNickMessage('Nick: 3-20 znaków, tylko litery, cyfry, _ i -', false);
+        return;
+    }
+
+    if (nickname === getDisplayName()) {
+        showNickMessage('To jest Twój obecny nick', false);
+        return;
+    }
+
+    // 1. Zmiana w tabeli profiles (tu baza pilnuje unikalności)
+    const { error } = await db
+        .from('profiles')
+        .update({ nickname })
+        .eq('id', currentUser.id);
+
+    if (error) {
+        showNickMessage(error.code === '23505' ? 'Ten nick jest już zajęty' : 'Nie udało się zmienić nicku', false);
+        return;
+    }
+
+    // 2. Zmiana w danych konta (z nich czyta getDisplayName)
+    const { data } = await db.auth.updateUser({ data: { nickname } });
+    if (data && data.user) currentUser = data.user;
+
+    input.value = '';
+    updateAuthUI();
+    loadProfile();
+    showNickMessage('Nick zmieniony! ✅', true);
+}
+
+// Escape zamyka panel
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeProfile();
+});
+function showPasswordMessage(text, success) {
+    const el = document.getElementById('passwordMessage');
+    el.textContent = text;
+    el.style.display = 'block';
+    el.style.color = success ? '#27ae60' : '#e74c3c';
+    el.style.background = success ? '#eafaf1' : '#fdecea';
+}
+
+async function changePassword() {
+    const currentInput = document.getElementById('currentPassword');
+    const newInput = document.getElementById('newPassword');
+    const repeatInput = document.getElementById('newPasswordRepeat');
+
+    const current = currentInput.value;
+    const newPass = newInput.value;
+    const repeat = repeatInput.value;
+
+    if (!current || !newPass || !repeat) {
+        showPasswordMessage('Wypełnij wszystkie pola', false);
+        return;
+    }
+    if (newPass.length < 6) {
+        showPasswordMessage('Nowe hasło musi mieć co najmniej 6 znaków', false);
+        return;
+    }
+    if (newPass !== repeat) {
+        showPasswordMessage('Nowe hasła nie są takie same', false);
+        return;
+    }
+    if (newPass === current) {
+        showPasswordMessage('Nowe hasło musi być inne niż obecne', false);
+        return;
+    }
+
+    // 1. Sprawdź obecne hasło (ponowne logowanie)
+    const { error: loginError } = await db.auth.signInWithPassword({
+        email: currentUser.email,
+        password: current
+    });
+
+    if (loginError) {
+        showPasswordMessage('Obecne hasło jest nieprawidłowe', false);
+        return;
+    }
+
+    // 2. Ustaw nowe hasło
+    const { error } = await db.auth.updateUser({ password: newPass });
+
+    if (error) {
+        showPasswordMessage('Nie udało się zmienić hasła', false);
+        return;
+    }
+
+    currentInput.value = '';
+    newInput.value = '';
+    repeatInput.value = '';
+    showPasswordMessage('Hasło zostało zmienione! ✅', true);
+}
 // ===== START =====
 initAuth();
 loadPlaces();
