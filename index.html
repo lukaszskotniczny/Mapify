@@ -1022,14 +1022,29 @@
 
 .profile-tab {
     flex: 1;
-    padding: 12px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 2px;
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
     cursor: pointer;
     font-weight: bold;
-    font-size: 13px;
+    font-size: 12px;
     color: #888;
+    white-space: nowrap;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.profile-tab:hover {
+    color: #667eea;
+}
+
+.tab-icon {
+    font-size: 18px;
+    line-height: 1;
 }
 
 .profile-tab.active {
@@ -1171,6 +1186,44 @@
 .dark-mode .confirm-card { background: #1e1e2e; }
 .dark-mode .confirm-card h3 { color: #eee; }
 .dark-mode .confirm-cancel { background: #34344a; color: #ddd; }
+/* ===== POPUP NA MAPIE ===== */
+/* Wszystko w popupie liczy szerokość razem z odstępami: koniec z poziomym paskiem */
+.leaflet-popup-content * {
+    box-sizing: border-box;
+}
+
+/* Popup z przewijaniem: tylko w pionie, cienki pasek w kolorze strony */
+.leaflet-popup-scrolled {
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: none !important;
+    padding-right: 6px;
+    scrollbar-width: thin;                     /* Firefox */
+    scrollbar-color: #c5c3ef transparent;      /* Firefox */
+}
+
+.leaflet-popup-scrolled::-webkit-scrollbar {
+    width: 6px;
+}
+
+.leaflet-popup-scrolled::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.leaflet-popup-scrolled::-webkit-scrollbar-thumb {
+    background: #c5c3ef;
+    border-radius: 10px;
+}
+
+.leaflet-popup-scrolled::-webkit-scrollbar-thumb:hover {
+    background: #667eea;
+}
+
+/* Zaokrąglony popup z cieniem w stylu reszty strony */
+.leaflet-popup-content-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
@@ -1203,10 +1256,10 @@
                 </button>
             </div>
         </div>
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-             <strong>Tryb Demo</strong> - Mapa działa. Aby dodawać miejsca, uruchom backend lokalnie.
-            <a href="https://github.com/lukaszskotniczny/mapa-dzwiekowa-krakowa" target="_blank" style="color: white; text-decoration: underline; margin-left: 10px;">
-                 Zobacz kod na GitHub
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+            🎵 <strong>Kliknij dwukrotnie na mapę</strong>, żeby dodać miejsce ze swoją muzyką. Zaloguj się, żeby polubić i komentować.
+            <a href="https://github.com/lukaszskotniczny/mapify" target="_blank" style="color: white; text-decoration: underline; margin-left: 10px;">
+                Kod na GitHub
             </a>
         </div>
         
@@ -1279,17 +1332,29 @@
         <div class="profile-avatar" id="profileAvatar">?</div>
         <h2 id="profileNick">Nick</h2>
         <p id="profileSince" class="profile-since"></p>
-        <div class="profile-stats">
+                <div class="profile-stats">
+            <div><strong id="statPlaces">0</strong><span>miejsc</span></div>
             <div><strong id="statLikes">0</strong><span>polubień</span></div>
             <div><strong id="statComments">0</strong><span>komentarzy</span></div>
         </div>
     </div>
 
-    <div class="profile-tabs">
-        <button class="profile-tab active" data-tab="liked" onclick="switchProfileTab('liked')">❤️ Polubione</button>
-        <button class="profile-tab" data-tab="comments" onclick="switchProfileTab('comments')">💬 Komentarze</button>
-        <button class="profile-tab" data-tab="settings" onclick="switchProfileTab('settings')">⚙️ Ustawienia</button>
+           <div class="profile-tabs">
+        <button class="profile-tab active" data-tab="places" onclick="switchProfileTab('places')">
+            <span class="tab-icon">📍</span>Miejsca
+        </button>
+        <button class="profile-tab" data-tab="liked" onclick="switchProfileTab('liked')">
+            <span class="tab-icon">❤️</span>Polubione
+        </button>
+        <button class="profile-tab" data-tab="comments" onclick="switchProfileTab('comments')">
+            <span class="tab-icon">💬</span>Komentarze
+        </button>
+        <button class="profile-tab" data-tab="settings" onclick="switchProfileTab('settings')">
+            <span class="tab-icon">⚙️</span>Ustawienia
+        </button>
     </div>
+
+    <div id="profileTab-places" class="profile-tab-content"></div>
 
     <div id="profileTab-liked" class="profile-tab-content"></div>
     <div id="profileTab-comments" class="profile-tab-content" style="display: none;"></div>
@@ -1321,10 +1386,6 @@
         </button>
     </div>
 </div>
-        <button onclick="changePassword()"
-                style="...">
-            Zmień hasło
-        </button>
     </div>
 </div>
 

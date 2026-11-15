@@ -113,90 +113,119 @@ async function loadPlaces() {
 
     renderMarkers();
 }
-function renderMarkers() {
-    // Usuń wszystkie markery
+
+let lastShownPlaces = []; // co aktualnie jest na mapie (do przerysowania po zalogowaniu)
+
+function buildPopup(place) {
+    const color = getCategoryColor(place.category);
+    const isMine = currentUser && place.userId === currentUser.id;
+
+    return `
+        <div>
+                        ${place.albumImage ? `<img src="${place.albumImage}" style="width: 100%; height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">` : ''}
+
+            <b style="font-size: 16px;">${safeText(place.songTitle)}</b><br>
+            <i style="color: #666;">${safeText(place.artist || '')}</i><br>
+
+            <span style="background: ${color}; color: white; padding: 3px 8px;
+                  border-radius: 5px; font-size: 12px; display: inline-block;
+                  margin-top: 5px; margin-bottom: 8px;">${getCategoryIcon(place.category)} ${place.category}</span>
+
+            <p style="margin-top: 8px; margin-bottom: 10px;">${safeText(place.description || '')}</p>
+
+            ${place.previewUrl ? `
+                <audio controls style="width: 100%; margin-bottom: 10px;">
+                    <source src="${place.previewUrl}" type="audio/mpeg">
+                </audio>
+            ` : ''}
+
+            ${place.spotifyUrl ? `
+                <a href="${place.spotifyUrl}" target="_blank"
+                   style="display: block; text-align: center; background: #1DB954; color: white;
+                          padding: 8px 15px; border-radius: 5px; text-decoration: none;
+                          font-weight: bold; font-size: 14px; margin-bottom: 8px;">
+                    🎵 Otwórz w Spotify
+                </a>
+            ` : ''}
+
+            <button id="like-btn-${place.id}" onclick="toggleLike(${place.id})"
+                    style="background: #e74c3c; color: white; border: none;
+                           padding: 8px 15px; border-radius: 5px; cursor: pointer;
+                           font-weight: bold; margin-bottom: 10px; width: 100%;">
+                🤍 0 polubień
+            </button>
+
+            ${isMine ? `
+                <button onclick="deletePlace(${place.id})"
+                        style="background: #95a5a6; color: white; border: none;
+                               padding: 8px 15px; border-radius: 5px; cursor: pointer;
+                               font-weight: bold; margin-bottom: 10px; width: 100%;">
+                    🗑️ Usuń moje miejsce
+                </button>
+            ` : ''}
+
+            <div style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;">
+                <strong>💬 Komentarze:</strong>
+                <div id="comments-${place.id}" style="max-height: 150px; overflow-y: auto; margin: 10px 0;">
+                    Ładowanie...
+                </div>
+
+                <textarea id="comment-text-${place.id}" placeholder="Dodaj komentarz..."
+                          style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px; resize: none;"
+                          rows="2"></textarea>
+
+                <button onclick="submitComment(${place.id})"
+                        style="background: #3498db; color: white; border: none;
+                               padding: 8px 15px; border-radius: 5px; cursor: pointer;
+                               font-weight: bold; width: 100%;">
+                    📤 Dodaj komentarz
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Rysuje pinezki. Bez argumentu = wszystkie miejsca.
+function renderMarkers(placesToShow = allPlaces) {
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
-    
-    // Dodaj markery dla wszystkich miejsc
-    allPlaces.forEach(place => {
-        const color = getCategoryColor(place.category);
-        const icon = createColoredIcon(color);
-        
-        const marker = L.marker([place.lat, place.lng], {icon: icon})
-            .addTo(map);
-        
-        // Załaduj dane social przy otwarciu popup
+    lastShownPlaces = placesToShow;
+
+    placesToShow.forEach(place => {
+        const icon = createColoredIcon(getCategoryColor(place.category));
+
+        const marker = L.marker([place.lat, place.lng], { icon: icon }).addTo(map);
+
+        // Dane społecznościowe ładujemy przy otwarciu popupu
         marker.on('popupopen', async () => {
-            isPopupOpen = true;  // ← DODAJ tę linię
-            console.log('Popup otwarty dla miejsca:', place.id);
             await updateLikeCount(place.id);
             await loadComments(place.id);
         });
-        
-        marker.on('popupclose', () => {
-            isPopupOpen = false;  // ← DODAJ ten cały event
+
+         marker.bindPopup(buildPopup(place), {
+            minWidth: 260,
+            maxWidth: 280,
+            maxHeight: 380,
+            autoPanPadding: [30, 30]
         });
-        
-        marker.bindPopup(`
-                <div style="min-width: 260px;">
-                    <b style="font-size: 16px;">${place.songTitle}</b><br>
-                    <i style="color: #666;">${place.artist}</i><br>
-                    
-                    <span style="background: ${color}; color: white; padding: 3px 8px; 
-                          border-radius: 5px; font-size: 12px; display: inline-block; 
-                          margin-top: 5px; margin-bottom: 8px;">${getCategoryIcon(place.category)} ${place.category}</span>
-                    
-                    <p style="margin-top: 8px; margin-bottom: 10px;">${place.description}</p>
-                    
-                    <!-- Polubienia -->
-                    <button id="like-btn-${place.id}" onclick="toggleLike(${place.id})" 
-                            style="background: #e74c3c; color: white; border: none; 
-                                   padding: 8px 15px; border-radius: 5px; cursor: pointer;
-                                   font-weight: bold; margin-bottom: 10px; width: 100%;">
-                        🤍 0 polubień
-                    </button>
-                    ${currentUser && place.userId === currentUser.id ? `
-                        <button onclick="deletePlace(${place.id})"
-                                style="background: #95a5a6; color: white; border: none;
-                                       padding: 8px 15px; border-radius: 5px; cursor: pointer;
-                                       font-weight: bold; margin-bottom: 10px; width: 100%;">
-                            🗑️ Usuń moje miejsce
-                        </button>
-                    ` : ''}
-                    <!-- Komentarze -->
-                    <div style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;">
-                        <strong>💬 Komentarze:</strong>
-                        <div id="comments-${place.id}" style="max-height: 150px; overflow-y: auto; margin: 10px 0;">
-                            Ładowanie...
-                        </div>
-                        
-                               
-                        
-                        <textarea id="comment-text-${place.id}" placeholder="Dodaj komentarz..." 
-                                  style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px; resize: none;" 
-                                  rows="2"></textarea>
-                        
-                        <button onclick="submitComment(${place.id})" 
-                                style="background: #3498db; color: white; border: none; 
-                                       padding: 8px 15px; border-radius: 5px; cursor: pointer;
-                                       font-weight: bold; width: 100%;">
-                            📤 Dodaj komentarz
-                        </button>
-                    </div>
-                </div>
-            `);
-        
         markers.push(marker);
     });
-    allPlaces.forEach(async (place) => {
-        await updateLikeCount(place.id);
-        await loadComments(place.id);
-    });
-    
+
     console.log('Dodano markerów:', markers.length);
-    updateStats(allPlaces);
+    updateStats(allPlaces); // statystyki zawsze dla wszystkich miejsc
     console.log('=== KONIEC loadPlaces() ===');
+}
+function filterByCategory(category) {
+    currentFilter = category;
+
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    const filteredPlaces = category === 'all'
+        ? allPlaces
+        : allPlaces.filter(place => place.category === category);
+
+    renderMarkers(filteredPlaces);
 }
 
 async function addPlace(lat, lng, songTitle, artist, category, description, spotifyUrl, albumImage, previewUrl) {
@@ -330,6 +359,9 @@ async function deletePlace(placeId) {
     map.closePopup();
     await loadPlaces();
     showToast('🗑️ Miejsce zostało usunięte', '✅');
+     if (document.getElementById('profilePanel').classList.contains('open')) {
+        loadProfile();
+    }
 }
 function updateStats(places) {
     document.getElementById('totalPlaces').textContent = places.length;
@@ -392,69 +424,6 @@ function updateFilterCounts(places) {
         const btnText = btn.textContent.split('(')[0].trim();
         btn.textContent = `${btnText} (${count})`;
     });
-}
-
-function filterByCategory(category) {
-    currentFilter = category;
-    
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-    
-    markers.forEach(marker => map.removeLayer(marker));
-    markers = [];
-    
-    const filteredPlaces = category === 'all' 
-        ? allPlaces 
-        : allPlaces.filter(place => place.category === category);
-    
-    filteredPlaces.forEach(place => {
-        const color = getCategoryColor(place.category);
-        const icon = createColoredIcon(color);
-        
-        const marker = L.marker([place.lat, place.lng], {icon: icon})
-            .addTo(map)
-            .bindPopup(`
-                <div style="min-width: 260px;">
-                    ${place.albumImage ? `<img src="${place.albumImage}" style="width: 100%; border-radius: 8px; margin-bottom: 10px;">` : ''}
-                    
-                    <b style="font-size: 16px;">${place.songTitle}</b><br>
-                    <i style="color: #666;">${place.artist}</i><br>
-                    
-                    <span style="background: ${color}; color: white; padding: 3px 8px; 
-                          border-radius: 5px; font-size: 12px; display: inline-block; 
-                          margin-top: 5px; margin-bottom: 8px;">${getCategoryIcon(place.category)} ${place.category}</span>
-                    
-                    <p style="margin-top: 8px; margin-bottom: 10px;">${place.description}</p>
-                    
-                    ${place.previewUrl ? `
-                        <audio controls style="width: 100%; margin-bottom: 10px;">
-                            <source src="${place.previewUrl}" type="audio/mpeg">
-                        </audio>
-                    ` : '<p style="color: #999; font-size: 12px; margin-bottom: 10px;">Brak preview</p>'}
-                    
-                    ${place.spotifyUrl ? `
-                        <a href="${place.spotifyUrl}" target="_blank" 
-                           style="display: inline-block; background: #1DB954; color: white; 
-                                  padding: 8px 15px; border-radius: 5px; text-decoration: none; 
-                                  font-weight: bold; font-size: 14px; margin-bottom: 8px;">
-                            🎵 Otwórz w Spotify
-                        </a>
-                    ` : ''}
-                    
-                    <button onclick="deletePlace(${place.id})" 
-                            style="background: #e74c3c; color: white; border: none; 
-                                   padding: 8px 15px; border-radius: 5px; cursor: pointer;
-                                   font-weight: bold; display: block; width: 100%;">
-                        🗑️ Usuń miejsce
-                    </button>
-                </div>
-            `);
-        markers.push(marker);
-    });
-    
-    updateStats(filteredPlaces);
 }
 
 // ===== SPOTIFY INTEGRATION =====
@@ -558,97 +527,32 @@ let searchTimeout;
 placeSearchInput.addEventListener('input', function(e) {
     clearTimeout(searchTimeout);
     const query = e.target.value.trim().toLowerCase();
-    
+
     if (query.length === 0) {
-        loadPlaces();
+        renderMarkers();
         return;
     }
-    
+
     searchTimeout = setTimeout(() => {
-        const filteredPlaces = allPlaces.filter(place => 
-            place.songTitle.toLowerCase().includes(query) ||
-            place.artist.toLowerCase().includes(query) ||
-            place.description.toLowerCase().includes(query)
+        const filteredPlaces = allPlaces.filter(place =>
+            (place.songTitle || '').toLowerCase().includes(query) ||
+            (place.artist || '').toLowerCase().includes(query) ||
+            (place.description || '').toLowerCase().includes(query)
         );
-        
-        markers.forEach(marker => map.removeLayer(marker));
-        markers = [];
-        
+
         if (filteredPlaces.length === 0) {
-            alert('Nie znaleziono miejsc spełniających kryteria');
+            showToast('Nie znaleziono pasujących miejsc', '🔍');
             return;
         }
-        
-        filteredPlaces.forEach(place => {
-            const color = getCategoryColor(place.category);
-            const icon = createColoredIcon(color);
-            
-            const marker = L.marker([place.lat, place.lng], {icon: icon})
-                .addTo(map);
-            
-            // Załaduj dane social przy otwarciu popup
-            marker.on('popupopen', async () => {
-                isPopupOpen = true;
-                popupClosing = false;
-                await updateLikeCount(place.id);
-                await loadComments(place.id);
-            });
-            
-            marker.on('popupclose', () => {
-                isPopupOpen = false;
-                popupClosing = true;
-                setTimeout(() => {
-                    popupClosing = false;
-                }, 100);
-            });
-            
-            marker.bindPopup(`
-                <div style="min-width: 260px;">
-                        ${place.albumImage ? `<img src="${place.albumImage}" style="width: 100%; border-radius: 8px; margin-bottom: 10px;">` : ''}
-                        
-                        <b style="font-size: 16px;">${place.songTitle}</b><br>
-                        <i style="color: #666;">${place.artist}</i><br>
-                        
-                        <span style="background: ${color}; color: white; padding: 3px 8px; 
-                              border-radius: 5px; font-size: 12px; display: inline-block; 
-                              margin-top: 5px; margin-bottom: 8px;">${getCategoryIcon(place.category)} ${place.category}</span>
-                        
-                        <p style="margin-top: 8px; margin-bottom: 10px;">${place.description}</p>
-                        
-                        ${place.previewUrl ? `
-                            <audio controls style="width: 100%; margin-bottom: 10px;">
-                                <source src="${place.previewUrl}" type="audio/mpeg">
-                            </audio>
-                        ` : '<p style="color: #999; font-size: 12px; margin-bottom: 10px;">Brak preview</p>'}
-                        
-                        ${place.spotifyUrl ? `
-                            <a href="${place.spotifyUrl}" target="_blank" 
-                               style="display: inline-block; background: #1DB954; color: white; 
-                                      padding: 8px 15px; border-radius: 5px; text-decoration: none; 
-                                      font-weight: bold; font-size: 14px; margin-bottom: 8px;">
-                                🎵 Otwórz w Spotify
-                            </a>
-                        ` : ''}
-                        
-                        <button onclick="deletePlace(${place.id})" 
-                                style="background: #e74c3c; color: white; border: none; 
-                                       padding: 8px 15px; border-radius: 5px; cursor: pointer;
-                                       font-weight: bold; display: block; width: 100%;">
-                            🗑️ Usuń miejsce
-                        </button>
-                    </div>
-                `);
-            markers.push(marker);
-        });
-        
+
+        renderMarkers(filteredPlaces);
+
         if (filteredPlaces.length === 1) {
-            map.flyTo([filteredPlaces[0].lat, filteredPlaces[0].lng], 15, {duration: 1});
+            map.flyTo([filteredPlaces[0].lat, filteredPlaces[0].lng], 15, { duration: 1 });
         } else {
             const bounds = L.latLngBounds(filteredPlaces.map(p => [p.lat, p.lng]));
-            map.fitBounds(bounds, {padding: [50, 50]});
+            map.fitBounds(bounds, { padding: [50, 50] });
         }
-        
-        updateStats(filteredPlaces);
     }, 500);
 });
 
@@ -906,10 +810,10 @@ async function initAuth() {
     currentUser = data.session ? data.session.user : null;
     updateAuthUI();
 
-       db.auth.onAuthStateChange((event, session) => {
+           db.auth.onAuthStateChange((event, session) => {
         currentUser = session ? session.user : null;
         updateAuthUI();
-        renderMarkers(); // przerysuj popupy (np. przycisk usuwania)
+        renderMarkers(lastShownPlaces); // przerysuj popupy, zachowując filtr
     });
 }
 
@@ -1051,16 +955,15 @@ function showAuthSplash(icon, title, text) {
 function openProfile() {
     if (!currentUser) return;
     document.getElementById('profilePanel').classList.add('open');
-    switchProfileTab('liked');
+    switchProfileTab('places');
     loadProfile();
 }
-
 function closeProfile() {
     document.getElementById('profilePanel').classList.remove('open');
 }
 
 function switchProfileTab(tab) {
-    ['liked', 'comments', 'settings'].forEach(t => {
+    ['places', 'liked', 'comments', 'settings'].forEach(t => {
         document.getElementById(`profileTab-${t}`).style.display = t === tab ? 'block' : 'none';
     });
     document.querySelectorAll('.profile-tab').forEach(btn => {
@@ -1098,7 +1001,27 @@ async function loadProfile() {
         .select('id, place_id, comment_text, created_at')
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
+    // Moje miejsca (są już załadowane w allPlaces, nie trzeba pytać bazy)
+    const myPlaces = allPlaces.filter(p => p.userId === currentUser.id);
+    document.getElementById('statPlaces').textContent = myPlaces.length;
 
+    const placesDiv = document.getElementById('profileTab-places');
+    if (myPlaces.length === 0) {
+        placesDiv.innerHTML = `
+            <p class="profile-empty">
+                Nie dodałeś jeszcze żadnego miejsca 📍<br>
+                <small>Kliknij dwukrotnie na mapę, żeby dodać pierwsze!</small>
+            </p>`;
+    } else {
+        placesDiv.innerHTML = myPlaces.map(p => `
+            <div class="profile-item" onclick="goToPlace(${p.id})">
+                <button class="profile-delete-btn"
+                        onclick="event.stopPropagation(); deletePlace(${p.id})">🗑️ Usuń</button>
+                <strong>${getCategoryIcon(p.category)} ${safeText(p.songTitle)}</strong><br>
+                <small>${safeText(p.artist || '')}</small>
+            </div>
+        `).join('');
+    }
     // Statystyki
     document.getElementById('statLikes').textContent = likes ? likes.length : 0;
     document.getElementById('statComments').textContent = comments ? comments.length : 0;
