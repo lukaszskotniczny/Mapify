@@ -1078,6 +1078,99 @@
 .dark-mode .profile-tabs { border-bottom-color: #333; }
 .dark-mode .profile-item { background: #2a2a3d; }
 .dark-mode .profile-item:hover { background: #34344a; }
+/* ===== OKIENKO POTWIERDZENIA ===== */
+.confirm-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 20, 60, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.confirm-modal.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.confirm-card {
+    background: white;
+    width: 340px;
+    max-width: 90%;
+    padding: 30px 25px 25px;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.8);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.confirm-modal.show .confirm-card {
+    transform: scale(1);
+}
+
+.confirm-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    background: #fdecea;
+    font-size: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.confirm-card h3 {
+    margin: 0 0 8px;
+    color: #333;
+}
+
+.confirm-card p {
+    margin: 0 0 20px;
+    color: #777;
+    font-size: 14px;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.confirm-btn {
+    flex: 1;
+    padding: 11px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+}
+
+.confirm-btn:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
+}
+
+.confirm-cancel {
+    background: #eee;
+    color: #555;
+}
+
+.confirm-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Tryb nocny */
+.dark-mode .confirm-card { background: #1e1e2e; }
+.dark-mode .confirm-card h3 { color: #eee; }
+.dark-mode .confirm-cancel { background: #34344a; color: #ddd; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
@@ -1228,6 +1321,23 @@
         </button>
     </div>
 </div>
+        <button onclick="changePassword()"
+                style="...">
+            Zmień hasło
+        </button>
+    </div>
+</div>
+
+<div id="confirmModal" class="confirm-modal">
+    <div class="confirm-card">
+        <div class="confirm-icon">🗑️</div>
+        <h3 id="confirmTitle">Na pewno?</h3>
+        <p id="confirmText"></p>
+        <div class="confirm-buttons">
+            <button id="confirmCancel" class="confirm-btn confirm-cancel">Anuluj</button>
+            <button id="confirmOk" class="confirm-btn confirm-danger">Usuń</button>
+        </div>
+    </div>
 </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

@@ -77,104 +77,42 @@ function getCategoryIcon(category) {
     return icons[category] || '📌';
 }
 
-function loadPlaces() {
-    console.log('=== START loadPlaces() ===');
-    
-    // Spróbuj załadować z backendu
-    fetch('http://localhost:5000/api/places')
-        .then(response => {
-            if (response.ok) {
-                return response.json();
-            } else {
-                throw new Error('Backend niedostępny');
-            }
-        })
-        .then(places => {
-            console.log('Załadowano z backendu:', places.length, 'miejsc');
-            allPlaces = places;
-            renderMarkers();
-        })
-        .catch(error => {
-            console.log('Backend niedostępny - ładowanie przykładowych miejsc');
-            // PRZYKŁADOWE MIEJSCA - tryb demo
-            allPlaces = [
-                {
-                    id: 1,
-                    lat: 50.0619,
-                    lng: 19.9368,
-                    songTitle: "Test Song 1",
-                    artist: "Test Artist",
-                    category: "nostalgiczne",
-                    description: "Testowe miejsce 1",
-                    spotifyUrl: null,
-                    albumImage: null,
-                    previewUrl: null
-                },
-                {
-                    id: 2,
-                    lat: 50.0544,
-                    lng: 19.9356,
-                    songTitle: "Test Song 2",
-                    artist: "Test Artist",
-                    category: "bieganie",
-                    description: "Testowe miejsce 2",
-                    spotifyUrl: null,
-                    albumImage: null,
-                    previewUrl: null
-                },
-                {
-                    id: 3,
-                    lat: 50.0537,
-                    lng: 19.9370,
-                    songTitle: "Test Song 3",
-                    artist: "Test Artist",
-                    category: "randka",
-                    description: "Testowe miejsce 3",
-                    spotifyUrl: null,
-                    albumImage: null,
-                    previewUrl: null
-                },
-                {
-                    id: 4,
-                    lat: 50.0663,
-                    lng: 19.9456,
-                    songTitle: "Test Song 4",
-                    artist: "Test Artist",
-                    category: "trening",
-                    description: "Testowe miejsce 4",
-                    spotifyUrl: null,
-                    albumImage: null,
-                    previewUrl: null
-                },
-                {
-                    id: 5,
-                    lat: 50.0575,
-                    lng: 19.9345,
-                    songTitle: "Test Song 5",
-                    artist: "Test Artist",
-                    category: "relaks",
-                    description: "Testowe miejsce 5",
-                    spotifyUrl: null,
-                    albumImage: null,
-                    previewUrl: null
-                },
-                {
-                    id: 6,
-                    lat: 50.0688,
-                    lng: 19.9071,
-                    songTitle: "Test Song 6",
-                    artist: "Test Artist",
-                    category: "impreza",
-                    description: "Testowe miejsce 6",
-                    spotifyUrl: null,
-                    albumImage: null,
-                    previewUrl: null
-                }
-            ];
-            renderMarkers();
-        });
+// Zamiana nazw kolumn z bazy (song_title) na nazwy używane w kodzie (songTitle)
+function mapPlace(row) {
+    return {
+        id: row.id,
+        lat: row.lat,
+        lng: row.lng,
+        songTitle: row.song_title,
+        artist: row.artist,
+        category: row.category,
+        description: row.description,
+        spotifyUrl: row.spotify_url,
+        albumImage: row.album_image,
+        previewUrl: row.preview_url,
+        userId: row.user_id
+    };
 }
 
+async function loadPlaces() {
+    console.log('=== START loadPlaces() ===');
+
+    const { data, error } = await db
+        .from('places')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Błąd ładowania miejsc:', error);
+        showToast('❌ Nie udało się załadować miejsc', '⚠️');
+        allPlaces = [];
+    } else {
+        console.log('Załadowano z Supabase:', data.length, 'miejsc');
+        allPlaces = data.map(mapPlace);
+    }
+
+    renderMarkers();
+}
 function renderMarkers() {
     // Usuń wszystkie markery
     markers.forEach(marker => map.removeLayer(marker));
@@ -218,7 +156,14 @@ function renderMarkers() {
                                    font-weight: bold; margin-bottom: 10px; width: 100%;">
                         🤍 0 polubień
                     </button>
-                    
+                    ${currentUser && place.userId === currentUser.id ? `
+                        <button onclick="deletePlace(${place.id})"
+                                style="background: #95a5a6; color: white; border: none;
+                                       padding: 8px 15px; border-radius: 5px; cursor: pointer;
+                                       font-weight: bold; margin-bottom: 10px; width: 100%;">
+                            🗑️ Usuń moje miejsce
+                        </button>
+                    ` : ''}
                     <!-- Komentarze -->
                     <div style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;">
                         <strong>💬 Komentarze:</strong>
@@ -255,70 +200,73 @@ function renderMarkers() {
 }
 
 async function addPlace(lat, lng, songTitle, artist, category, description, spotifyUrl, albumImage, previewUrl) {
-    try {
-        const response = await fetch('http://localhost:5000/api/places', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                lat: lat,
-                lng: lng,
-                songTitle: songTitle,
-                artist: artist,
-                category: category,
-                description: description,
-                spotifyUrl: spotifyUrl,
-                albumImage: albumImage,
-                previewUrl: previewUrl
-            })
-        });
-        if (response.ok) {
-            showToast('🎉 Miejsce dodane pomyślnie!', '✅');
-            
-            loadPlaces();
-            
-            map.flyTo([lat, lng], 15, {
-                duration: 1.5,
-                easeLinearity: 0.5
-            });
-            
-            setTimeout(() => {
-                markers.forEach(marker => {
-                    const markerLatLng = marker.getLatLng();
-                    if (Math.abs(markerLatLng.lat - lat) < 0.0001 && 
-                        Math.abs(markerLatLng.lng - lng) < 0.0001) {
-                        marker.openPopup();
-                        
-                        const el = marker.getElement();
-                        if (el) {
-                            el.classList.add('marker-pulse');
-                            setTimeout(() => el.classList.remove('marker-pulse'), 2000);
-                        }
-                    }
-                });
-            }, 1600);
-            
-            currentFilter = 'all';
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector('.filter-btn').classList.add('active');
-        }
-    } catch (error) {
-        console.error('Błąd dodawania miejsca:', error);
+    if (!currentUser) {
+        showToast('Zaloguj się, żeby dodać miejsce', '🔒');
+        openAuthModal();
+        return;
     }
+
+    const { error } = await db
+        .from('places')
+        .insert({
+            lat: lat,
+            lng: lng,
+            song_title: songTitle,
+            artist: artist,
+            category: category,
+            description: description,
+            spotify_url: spotifyUrl || null,
+            album_image: albumImage || null,
+            preview_url: previewUrl || null,
+            user_id: currentUser.id
+        });
+
+    if (error) {
+        console.error('Błąd dodawania miejsca:', error);
+        showToast('❌ Nie udało się dodać miejsca', '⚠️');
+        return;
+    }
+
+    showToast('🎉 Miejsce dodane pomyślnie!', '✅');
+    await loadPlaces();
+
+    map.flyTo([lat, lng], 15, { duration: 1.5, easeLinearity: 0.5 });
+
+    setTimeout(() => {
+        markers.forEach(marker => {
+            const markerLatLng = marker.getLatLng();
+            if (Math.abs(markerLatLng.lat - lat) < 0.0001 &&
+                Math.abs(markerLatLng.lng - lng) < 0.0001) {
+                marker.openPopup();
+
+                const el = marker.getElement();
+                if (el) {
+                    el.classList.add('marker-pulse');
+                    setTimeout(() => el.classList.remove('marker-pulse'), 2000);
+                }
+            }
+        });
+    }, 1600);
+
+    currentFilter = 'all';
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.filter-btn').classList.add('active');
 }
 
 
 
 
 map.on('dblclick', function(e) {
+    if (!currentUser) {
+        showToast('Zaloguj się, żeby dodać miejsce', '🔒');
+        openAuthModal();
+        return;
+    }
+
     currentLat = e.latlng.lat;
     currentLng = e.latlng.lng;
     modal.style.display = 'block';
 });
-
 closeBtn.onclick = function() {
     modal.style.display = 'none';
     form.reset();
@@ -349,25 +297,40 @@ form.onsubmit = function(e) {
 }
 
 async function deletePlace(placeId) {
-    if (!confirm('Czy na pewno chcesz usunąć to miejsce?')) {
+    if (!currentUser) {
+        showToast('Zaloguj się, żeby usuwać miejsca', '🔒');
+        openAuthModal();
         return;
     }
-    
-    try {
-        const response = await fetch(`http://localhost:5000/api/places/${placeId}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            loadPlaces();
-            showToast('🗑️ Miejsce zostało usunięte', '✅');
-        }
-    } catch (error) {
+
+        const ok = await showConfirm(
+        'Usunąć to miejsce?',
+        'Razem z nim znikną jego polubienia i komentarze. Tej operacji nie można cofnąć.'
+    );
+    if (!ok) return;
+
+    const { data, error } = await db
+        .from('places')
+        .delete()
+        .eq('id', placeId)
+        .select();
+
+    if (error) {
         console.error('Błąd usuwania miejsca:', error);
         showToast('❌ Nie udało się usunąć miejsca', '⚠️');
+        return;
     }
-}
 
+    // RLS po cichu blokuje usuwanie cudzych miejsc, wtedy nic nie zostaje usunięte
+    if (!data || data.length === 0) {
+        showToast('Możesz usuwać tylko swoje miejsca', '🔒');
+        return;
+    }
+
+    map.closePopup();
+    await loadPlaces();
+    showToast('🗑️ Miejsce zostało usunięte', '✅');
+}
 function updateStats(places) {
     document.getElementById('totalPlaces').textContent = places.length;
     
@@ -943,9 +906,10 @@ async function initAuth() {
     currentUser = data.session ? data.session.user : null;
     updateAuthUI();
 
-    db.auth.onAuthStateChange((event, session) => {
+       db.auth.onAuthStateChange((event, session) => {
         currentUser = session ? session.user : null;
         updateAuthUI();
+        renderMarkers(); // przerysuj popupy (np. przycisk usuwania)
     });
 }
 
@@ -1197,7 +1161,8 @@ function goToPlace(placeId) {
 }
 
 async function deleteMyComment(commentId, placeId) {
-    if (!confirm('Usunąć ten komentarz?')) return;
+        const ok = await showConfirm('Usunąć komentarz?', 'Tej operacji nie można cofnąć.');
+    if (!ok) return;
 
     const { error } = await db
         .from('comments')
@@ -1319,6 +1284,33 @@ async function changePassword() {
     newInput.value = '';
     repeatInput.value = '';
     showPasswordMessage('Hasło zostało zmienione! ✅', true);
+}
+// Ładne okienko potwierdzenia zamiast confirm()
+// Zwraca true (kliknięto "Usuń") albo false (Anuluj / kliknięcie obok)
+function showConfirm(title, text, okLabel = 'Usuń') {
+    return new Promise(resolve => {
+        const modal = document.getElementById('confirmModal');
+        const okBtn = document.getElementById('confirmOk');
+        const cancelBtn = document.getElementById('confirmCancel');
+
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmText').textContent = text;
+        okBtn.textContent = okLabel;
+
+        modal.classList.add('show');
+
+        function close(result) {
+            modal.classList.remove('show');
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            modal.onclick = null;
+            resolve(result);
+        }
+
+        okBtn.onclick = () => close(true);
+        cancelBtn.onclick = () => close(false);
+        modal.onclick = (e) => { if (e.target === modal) close(false); };
+    });
 }
 // ===== START =====
 initAuth();
