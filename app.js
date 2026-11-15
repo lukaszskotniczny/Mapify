@@ -749,6 +749,11 @@ function showToast(message, icon = '✅', duration = 3000) {
 // ===== LOGOWANIE: stan =====
 let currentUser = null;
 let authMode = 'login'; // 'login' albo 'register'
+// Nazwa do wyświetlania: nick, a jak go nie ma, to początek maila
+function getDisplayName() {
+    if (!currentUser) return '';
+    return currentUser.user_metadata?.nickname || currentUser.email.split('@')[0];
+}
 
 // Zabezpieczenie przed wstrzyknięciem HTML w komentarzach
 function safeText(text) {
@@ -845,7 +850,7 @@ async function addComment(placeId, commentText) {
             .insert({
                 place_id: placeId,
                 user_id: currentUser.id,
-                user_name: currentUser.email.split('@')[0], // podpis = część emaila przed @
+                                user_name: getDisplayName(),
                 comment_text: commentText
             });
 
@@ -926,6 +931,13 @@ async function getTopPlaces() {
 }
 
 // ===== LOGOWANIE: funkcje =====
+
+// Nazwa do wyświetlania: nick, a jak go nie ma, to początek maila
+function getDisplayName() {
+    if (!currentUser) return '';
+    return currentUser.user_metadata?.nickname || currentUser.email.split('@')[0];
+}
+
 async function initAuth() {
     const { data } = await db.auth.getSession();
     currentUser = data.session ? data.session.user : null;
@@ -939,14 +951,14 @@ async function initAuth() {
 
 function updateAuthUI() {
     const btn = document.getElementById('authBtn');
-    const emailSpan = document.getElementById('userEmail');
+    const nameSpan = document.getElementById('userEmail');
 
     if (currentUser) {
         btn.textContent = 'Wyloguj';
-        emailSpan.textContent = currentUser.email;
+        nameSpan.textContent = getDisplayName();
     } else {
         btn.textContent = 'Zaloguj';
-        emailSpan.textContent = '';
+        nameSpan.textContent = '';
     }
 }
 
@@ -966,6 +978,7 @@ function openAuthModal() {
 function closeAuthModal() {
     hideAuthError();
     document.getElementById('authModal').style.display = 'none';
+    document.getElementById('authNickname').value = '';
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
 }
@@ -975,6 +988,7 @@ function toggleAuthMode() {
     authMode = authMode === 'login' ? 'register' : 'login';
     const isLogin = authMode === 'login';
 
+    document.getElementById('authNickname').style.display = isLogin ? 'none' : 'block';
     document.getElementById('authTitle').textContent = isLogin ? 'Logowanie' : 'Rejestracja';
     document.getElementById('authSubmit').textContent = isLogin ? 'Zaloguj' : 'Zarejestruj';
     document.getElementById('authSwitch').textContent = isLogin
@@ -983,6 +997,7 @@ function toggleAuthMode() {
 }
 
 async function submitAuth() {
+    const nickname = document.getElementById('authNickname').value.trim();
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
 
@@ -993,21 +1008,32 @@ async function submitAuth() {
         return;
     }
 
-    const { error } = authMode === 'login'
-        ? await db.auth.signInWithPassword({ email, password })
-        : await db.auth.signUp({ email, password });
+    let result;
 
-    if (error) {
-        showAuthError(translateAuthError(error.message));
+    if (authMode === 'login') {
+        result = await db.auth.signInWithPassword({ email, password });
+    } else {
+        if (!/^[a-zA-Z0-9_ąćęłńóśźżĄĆĘŁŃÓŚŹŻ-]{3,20}$/.test(nickname)) {
+            showAuthError('Nick: 3-20 znaków, tylko litery, cyfry, _ i -');
+            return;
+        }
+        result = await db.auth.signUp({
+            email,
+            password,
+            options: { data: { nickname } } // nick trafia do profilu
+        });
+    }
+
+    if (result.error) {
+        showAuthError(translateAuthError(result.error.message));
         return;
     }
 
-        closeAuthModal();
-    const name = email.split('@')[0];
+    closeAuthModal();
     if (authMode === 'login') {
-        showAuthSplash('👋', `Witaj, ${name}!`, 'Zalogowano pomyślnie');
+        showAuthSplash('👋', `Witaj, ${getDisplayName()}!`, 'Zalogowano pomyślnie');
     } else {
-        showAuthSplash('🎉', 'Witaj w Mapify!', 'Konto zostało utworzone');
+        showAuthSplash('🎉', `Witaj w Mapify, ${nickname}!`, 'Konto zostało utworzone');
     }
 }
 
@@ -1023,6 +1049,7 @@ function hideAuthError() {
 
 // Tłumaczenie komunikatów Supabase na polski
 function translateAuthError(message) {
+    if (message.includes('Database error saving new user')) return 'Ten nick jest już zajęty';
     if (message.includes('Invalid login credentials')) return 'Nieprawidłowy email lub hasło';
     if (message.includes('already registered')) return 'Konto z tym emailem już istnieje';
     if (message.includes('at least 6 characters')) return 'Hasło musi mieć co najmniej 6 znaków';
@@ -1030,11 +1057,14 @@ function translateAuthError(message) {
     if (message.includes('rate limit')) return 'Za dużo prób. Spróbuj za chwilę';
     return 'Coś poszło nie tak. Spróbuj ponownie';
 }
-['authEmail', 'authPassword'].forEach(id => {
+
+// Enter w okienku logowania = kliknięcie przycisku
+['authNickname', 'authEmail', 'authPassword'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', (e) => {
         if (e.key === 'Enter') submitAuth();
     });
 });
+
 // Animacja zalogowania / wylogowania
 function showAuthSplash(icon, title, text) {
     const splash = document.getElementById('authSplash');
