@@ -90,7 +90,9 @@ function mapPlace(row) {
         spotifyUrl: row.spotify_url,
         albumImage: row.album_image,
         previewUrl: row.preview_url,
-        userId: row.user_id
+        userId: row.user_id,
+        userId: row.user_id,
+        deezerId: row.deezer_id
     };
 }
 
@@ -122,7 +124,13 @@ function buildPopup(place) {
 
     return `
         <div>
-                        ${place.albumImage ? `<img src="${place.albumImage}" style="width: 100%; height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">` : ''}
+                                           <div class="cover-wrap">
+                ${place.albumImage
+                    ? `<img src="${place.albumImage}" alt="Okładka">`
+                    : `<div class="cover-placeholder">🎵</div>`}
+                <button class="cover-play" id="play-btn-${place.id}"
+                        onclick="togglePlacePreview(${place.id})" title="Odtwórz fragment">▶</button>
+            </div>
 
             <b style="font-size: 16px;">${safeText(place.songTitle)}</b><br>
             <i style="color: #666;">${safeText(place.artist || '')}</i><br>
@@ -133,18 +141,12 @@ function buildPopup(place) {
 
             <p style="margin-top: 8px; margin-bottom: 10px;">${safeText(place.description || '')}</p>
 
-            ${place.previewUrl ? `
-                <audio controls style="width: 100%; margin-bottom: 10px;">
-                    <source src="${place.previewUrl}" type="audio/mpeg">
-                </audio>
-            ` : ''}
-
             ${place.spotifyUrl ? `
                 <a href="${place.spotifyUrl}" target="_blank"
                    style="display: block; text-align: center; background: #1DB954; color: white;
                           padding: 8px 15px; border-radius: 5px; text-decoration: none;
                           font-weight: bold; font-size: 14px; margin-bottom: 8px;">
-                    🎵 Otwórz w Spotify
+                    Otwórz w Spotify
                 </a>
             ` : ''}
 
@@ -228,7 +230,7 @@ function filterByCategory(category) {
     renderMarkers(filteredPlaces);
 }
 
-async function addPlace(lat, lng, songTitle, artist, category, description, spotifyUrl, albumImage, previewUrl) {
+async function addPlace(lat, lng, songTitle, artist, category, description, spotifyUrl, albumImage, previewUrl, trackId) {
     if (!currentUser) {
         showToast('Zaloguj się, żeby dodać miejsce', '🔒');
         openAuthModal();
@@ -246,7 +248,7 @@ async function addPlace(lat, lng, songTitle, artist, category, description, spot
             description: description,
             spotify_url: spotifyUrl || null,
             album_image: albumImage || null,
-            preview_url: previewUrl || null,
+            preview_url: previewUrl || null, deezer_id: trackId ? Number(trackId) : null,
             user_id: currentUser.id
         });
 
@@ -297,6 +299,7 @@ map.on('dblclick', function(e) {
     modal.style.display = 'block';
 });
 closeBtn.onclick = function() {
+    stopPreview();
     modal.style.display = 'none';
     form.reset();
 }
@@ -310,7 +313,8 @@ window.onclick = function(event) {
 
 form.onsubmit = function(e) {
     e.preventDefault();
-    
+    stopPreview();
+
     const songTitle = document.getElementById('songTitle').value;
     const artist = document.getElementById('artist').value;
     const category = document.getElementById('category').value;
@@ -318,9 +322,11 @@ form.onsubmit = function(e) {
     const spotifyUrl = document.getElementById('spotifyUrl').value;
     const albumImage = document.getElementById('albumImage').value;
     const previewUrl = document.getElementById('previewUrl').value;
-    
-    addPlace(currentLat, currentLng, songTitle, artist, category, description || 'Brak opisu', spotifyUrl, albumImage, previewUrl);
-    
+    const trackId = document.getElementById('trackId').value;
+
+    addPlace(currentLat, currentLng, songTitle, artist, category, description || 'Brak opisu',
+             spotifyUrl, albumImage, previewUrl, trackId);
+
     modal.style.display = 'none';
     form.reset();
 }
@@ -444,8 +450,10 @@ spotifySearchInput.addEventListener('input', function(e) {
     
     spotifySearchTimeout = setTimeout(async () => {
         try {
-            const response = await fetch(`http://localhost:5000/api/spotify/search?q=${encodeURIComponent(query)}`);
-            const tracks = await response.json();
+                                const { data: tracks, error } = await db.functions.invoke('music-search', {
+                body: { q: query }
+            });
+            if (error) throw error;
             
             displaySpotifyResults(tracks);
         } catch (error) {
@@ -454,33 +462,56 @@ spotifySearchInput.addEventListener('input', function(e) {
     }, 500);
 });
 
+// Jeden wspólny odtwarzacz do podglądów w wyszukiwarce
+const previewAudio = new Audio();
+previewAudio.volume = 0.4;
+
+function playPreview(url, el) {
+    if (!url) return;
+    previewAudio.src = url;
+    previewAudio.play().catch(() => {}); // przeglądarka może zablokować dźwięk, wtedy po prostu cisza
+    el.classList.add('playing');
+}
+
+function stopPreview(el) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+    if (el) el.classList.remove('playing');
+}
+
 function displaySpotifyResults(tracks) {
-    if (tracks.length === 0) {
+    if (!tracks || tracks.length === 0) {
         spotifyResults.innerHTML = '<div style="padding: 12px; text-align: center; color: #666;">Nie znaleziono utworów</div>';
         spotifyResults.classList.add('show');
         return;
     }
-    
+
     spotifyResults.innerHTML = tracks.map(track => `
-        <div class="spotify-result-item" onclick="selectSpotifyTrack('${track.id}', '${escapeHtml(track.name)}', '${escapeHtml(track.artist)}', '${track.spotify_url}', '${track.image || ''}', '${track.preview_url || ''}')">
-            ${track.image ? `<img src="${track.image}" class="spotify-result-image" alt="Album cover">` : '<div class="spotify-result-image" style="background: #ddd;"></div>'}
+        <div class="spotify-result-item"
+             onmouseenter="playPreview('${track.preview_url || ''}', this)"
+             onmouseleave="stopPreview(this)"
+             onclick="selectSpotifyTrack('${track.id}', '${escapeHtml(track.name)}', '${escapeHtml(track.artist)}', '${track.spotify_url}', '${track.image || ''}', '${track.preview_url || ''}')">
+            ${track.image ? `<img src="${track.image}" class="spotify-result-image" alt="Okładka">` : '<div class="spotify-result-image" style="background: #ddd;"></div>'}
             <div class="spotify-result-info">
                 <div class="spotify-result-title">${track.name}</div>
                 <div class="spotify-result-artist">${track.artist}</div>
             </div>
+            ${track.preview_url ? '<span class="eq"><i></i><i></i><i></i></span>' : ''}
         </div>
     `).join('');
-    
+
     spotifyResults.classList.add('show');
 }
 
 function selectSpotifyTrack(id, name, artist, spotifyUrl, image, previewUrl) {
+    stopPreview();
     document.getElementById('songTitle').value = `${name} - ${artist}`;
     document.getElementById('artist').value = artist;
     document.getElementById('spotifyUrl').value = spotifyUrl;
     document.getElementById('albumImage').value = image;
     document.getElementById('previewUrl').value = previewUrl;
-    
+    document.getElementById('trackId').value = id;
+
     spotifyResults.classList.remove('show');
     spotifyResults.innerHTML = '';
     spotifySearchInput.value = '';
@@ -1235,6 +1266,82 @@ function showConfirm(title, text, okLabel = 'Usuń') {
         modal.onclick = (e) => { if (e.target === modal) close(false); };
     });
 }
+// ===== WYBÓR KATEGORII W FORMULARZU =====
+function selectCategory(value) {
+    document.getElementById('category').value = value;
+    document.querySelectorAll('.category-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.value === value);
+    });
+}
+
+document.querySelectorAll('.category-chip').forEach(chip => {
+    chip.addEventListener('click', () => selectCategory(chip.dataset.value));
+});
+
+// Po wyczyszczeniu formularza wróć do domyślnej kategorii
+form.addEventListener('reset', () => {
+    setTimeout(() => selectCategory('bieganie'), 0);
+});
+// ===== ODTWARZANIE FRAGMENTU W POPUPIE =====
+const placeAudio = new Audio();
+placeAudio.volume = 0.6;
+let playingPlaceId = null;
+
+// Pobiera świeży link do podglądu (linki z Deezera wygasają)
+async function getFreshPreview(place) {
+    const body = place.deezerId
+        ? { trackId: place.deezerId }
+        : { q: `${place.songTitle} ${place.artist || ''}` }; // stare miejsca: szukamy po tytule
+
+    const { data, error } = await db.functions.invoke('music-search', { body });
+    if (error || !data) return null;
+
+    return place.deezerId ? data.preview_url : (data[0]?.preview_url || null);
+}
+
+async function togglePlacePreview(placeId) {
+    // Kliknięcie w grający utwór = pauza
+    if (playingPlaceId === placeId) {
+        stopPlacePreview();
+        return;
+    }
+
+    stopPlacePreview();
+
+    const place = allPlaces.find(p => Number(p.id) === Number(placeId));
+    const btn = document.getElementById(`play-btn-${placeId}`);
+    if (!place || !btn) return;
+
+    btn.textContent = '⏳';
+    const url = await getFreshPreview(place);
+
+    if (!url) {
+        btn.textContent = '▶';
+        showToast('Brak podglądu dla tego utworu', '🎵');
+        return;
+    }
+
+    placeAudio.src = url;
+    placeAudio.play().catch(() => {});
+    playingPlaceId = placeId;
+    btn.textContent = '❚❚';
+    btn.classList.add('playing');
+}
+
+function stopPlacePreview() {
+    placeAudio.pause();
+    if (playingPlaceId !== null) {
+        const btn = document.getElementById(`play-btn-${playingPlaceId}`);
+        if (btn) {
+            btn.textContent = '▶';
+            btn.classList.remove('playing');
+        }
+    }
+    playingPlaceId = null;
+}
+
+placeAudio.addEventListener('ended', stopPlacePreview); // koniec fragmentu
+map.on('popupclose', stopPlacePreview);                 // zamknięcie popupu = cisza
 // ===== START =====
 initAuth();
 loadPlaces();

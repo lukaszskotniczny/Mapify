@@ -1224,6 +1224,173 @@
     border-radius: 16px;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
 }
+/* ===== PODGLĄD UTWORU W WYSZUKIWARCE ===== */
+.spotify-result-item {
+    display: flex;
+    align-items: center;
+}
+.spotify-result-item.playing {
+    background: #ecebfa;
+}
+
+.dark-mode .spotify-result-item.playing {
+    background: #34344a;
+}
+/* Animowany korektor przy podglądzie */
+.eq {
+    margin-left: auto;
+    padding-left: 10px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 16px;
+    opacity: 0.35;
+    transition: opacity 0.2s;
+}
+
+.eq i {
+    display: block;
+    width: 3px;
+    height: 4px;
+    background: #667eea;
+    border-radius: 2px;
+}
+
+.spotify-result-item.playing .eq {
+    opacity: 1;
+}
+
+.spotify-result-item.playing .eq i {
+    animation: eqBounce 0.9s ease-in-out infinite;
+}
+
+.spotify-result-item.playing .eq i:nth-child(2) { animation-delay: 0.2s; }
+.spotify-result-item.playing .eq i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes eqBounce {
+    0%, 100% { height: 4px; }
+    50%      { height: 16px; }
+}
+
+.dark-mode .eq i {
+    background: #a29bfe;
+}
+/* ===== WYBÓR KATEGORII ===== */
+.category-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 15px;
+}
+
+.category-chip {
+    padding: 7px 14px;
+    border: 2px solid var(--c);
+    border-radius: 20px;
+    background: white;
+    color: #444;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.category-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.category-chip.active {
+    background: var(--c);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dark-mode .category-chip {
+    background: #2a2a3d;
+    color: #ddd;
+}
+
+.dark-mode .category-chip.active {
+    background: var(--c);
+    color: white;
+}
+/* ===== OKŁADKA Z PRZYCISKIEM ODTWARZANIA ===== */
+.cover-wrap {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.cover-wrap img,
+.cover-placeholder {
+    display: block;
+    width: 100%;
+    height: 130px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.cover-placeholder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+}
+
+.cover-play {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: white;
+    color: #667eea;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s, background 0.2s;
+}
+
+.cover-play:hover {
+    transform: scale(1.1);
+}
+
+.cover-play.playing {
+    background: #667eea;
+    color: white;
+}
+/* ===== PRZEWIJANE OKIENKA (dodawanie miejsca, logowanie) ===== */
+.modal {
+    overflow-y: auto;
+}
+
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: thin;                  /* Firefox */
+    scrollbar-color: #c5c3ef transparent;   /* Firefox */
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: #c5c3ef;
+    border-radius: 10px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #667eea;
+}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
@@ -1475,20 +1642,22 @@
                         <input type="hidden" id="artist">
                         <input type="hidden" id="spotifyUrl">
                         <input type="hidden" id="albumImage">
-                        <input type="hidden" id="previewUrl">
+                        <input type="hidden" id="previewUrl"> 
+                        <input type="hidden" id="trackId">
                     </div>
                     
                     <div class="form-group">
                         <label for="category">Kategoria:</label>
-                        <select id="category" required>
-                            <option value="bieganie">🏃 Bieganie</option>
-                            <option value="randka">❤️ Randka</option>
-                            <option value="nostalgiczne">😌 Nostalgiczne</option>
-                            <option value="trening">💪 Trening/Siłownia</option>
-                            <option value="relaks">🧘 Relaks</option>
-                            <option value="impreza">🎉 Impreza</option>
-                            <option value="inne">📌 Inne</option>
-                        </select>
+                        <div class="category-chips">
+    <button type="button" class="category-chip active" data-value="bieganie" style="--c: #3498db;">🏃 Bieganie</button>
+    <button type="button" class="category-chip" data-value="randka" style="--c: #e74c3c;">❤️ Randka</button>
+    <button type="button" class="category-chip" data-value="nostalgiczne" style="--c: #9b59b6;">😌 Nostalgiczne</button>
+    <button type="button" class="category-chip" data-value="trening" style="--c: #2ecc71;">💪 Trening</button>
+    <button type="button" class="category-chip" data-value="relaks" style="--c: #1abc9c;">🧘 Relaks</button>
+    <button type="button" class="category-chip" data-value="impreza" style="--c: #f39c12;">🎉 Impreza</button>
+    <button type="button" class="category-chip" data-value="inne" style="--c: #95a5a6;">📌 Inne</button>
+</div>
+<input type="hidden" id="category" value="bieganie">
                     </div>
                     
                     <div class="form-group">
@@ -1509,6 +1678,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>
