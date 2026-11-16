@@ -1688,6 +1688,21 @@
                        border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
             Zmień hasło
         </button>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+
+<label style="font-weight: bold; color: #e74c3c;">⚠️ Strefa niebezpieczna</label>
+<p style="font-size: 13px; color: #888; margin: 6px 0;">
+    Usunięcie konta usunie też Twoje miejsca, polubienia i komentarze. Tej operacji nie można cofnąć.
+</p>
+<input type="password" id="deletePassword" placeholder="Podaj hasło, żeby potwierdzić"
+       style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
+<p id="deleteMessage" style="display: none; color: #e74c3c; background: #fdecea;
+   padding: 8px 10px; border-radius: 5px; font-size: 14px;"></p>
+<button onclick="deleteAccount()"
+        style="width: 100%; padding: 10px; background: #e74c3c; color: white;
+               border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
+    Usuń konto
+</button>
     </div>
 </div>
     </div>
@@ -1816,6 +1831,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

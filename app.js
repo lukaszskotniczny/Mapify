@@ -962,7 +962,7 @@ async function submitAuth() {
             }
         });
     }
-    
+
 
     if (result.error) {
         console.error('Błąd logowania/rejestracji:', result.error.message);
@@ -1525,5 +1525,55 @@ document.addEventListener('click', (e) => {
     if (!e.target.closest('.geo-search')) geoResults.classList.remove('show');
 });
 // ===== START =====
+// ===== USUWANIE KONTA =====
+function showDeleteMessage(text) {
+    const el = document.getElementById('deleteMessage');
+    el.textContent = text;
+    el.style.display = 'block';
+}
+
+async function deleteAccount() {
+    const input = document.getElementById('deletePassword');
+    const password = input.value;
+
+    if (!password) {
+        showDeleteMessage('Podaj hasło');
+        return;
+    }
+
+    // 1. Sprawdź hasło
+    const { error: loginError } = await db.auth.signInWithPassword({
+        email: currentUser.email,
+        password
+    });
+    if (loginError) {
+        showDeleteMessage('Nieprawidłowe hasło');
+        return;
+    }
+
+    // 2. Ostatnie potwierdzenie
+    const ok = await showConfirm(
+        'Usunąć konto na zawsze?',
+        'Znikną wszystkie Twoje miejsca, polubienia i komentarze. Tej operacji nie można cofnąć.',
+        'Usuń konto'
+    );
+    if (!ok) return;
+
+    // 3. Usunięcie przez funkcję w bazie
+    const { error } = await db.rpc('delete_own_account');
+    if (error) {
+        console.error('Błąd usuwania konta:', error);
+        showDeleteMessage('Nie udało się usunąć konta');
+        return;
+    }
+
+    // 4. Sprzątanie po stronie strony
+    input.value = '';
+    document.getElementById('deleteMessage').style.display = 'none';
+    closeProfile();
+    await db.auth.signOut({ scope: 'local' }); // konto już nie istnieje, czyścimy tylko sesję w przeglądarce
+    await loadPlaces();
+    showAuthSplash('👋', 'Konto usunięte', 'Dzięki, że byłeś z Mapify', 3000);
+}
 initAuth();
 loadPlaces();
