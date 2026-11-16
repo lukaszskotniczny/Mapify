@@ -864,9 +864,17 @@ function getDisplayName() {
 }
 
 async function initAuth() {
+    // Czy użytkownik właśnie wrócił z linku aktywacyjnego?
+    const cameFromSignupLink = window.location.hash.includes('type=signup');
+
     const { data } = await db.auth.getSession();
     currentUser = data.session ? data.session.user : null;
     updateAuthUI();
+
+    if (cameFromSignupLink && currentUser) {
+        showAuthSplash('🎉', 'Konto aktywowane!', `Witaj w Mapify, ${getDisplayName()}!`, 3000);
+        history.replaceState(null, '', window.location.pathname); // czyścimy adres z tokenów
+    }
 
            db.auth.onAuthStateChange((event, session) => {
         currentUser = session ? session.user : null;
@@ -945,26 +953,34 @@ async function submitAuth() {
             showAuthError('Nick: 3-20 znaków, tylko litery, cyfry, _ i -');
             return;
         }
-        result = await db.auth.signUp({
+               result = await db.auth.signUp({
             email,
             password,
-            options: { data: { nickname } } // nick trafia do profilu
+            options: {
+                data: { nickname }, // nick trafia do profilu
+                emailRedirectTo: window.location.origin + window.location.pathname // link z maila wraca na tę stronę
+            }
         });
     }
+    
 
     if (result.error) {
+        console.error('Błąd logowania/rejestracji:', result.error.message);
         showAuthError(translateAuthError(result.error.message));
         return;
     }
 
-    closeAuthModal();
+        closeAuthModal();
     if (authMode === 'login') {
         showAuthSplash('👋', `Witaj, ${getDisplayName()}!`, 'Zalogowano pomyślnie');
-    } else {
+    } else if (result.data.session) {
+        // potwierdzanie maila wyłączone: od razu zalogowany
         showAuthSplash('🎉', `Witaj w Mapify, ${nickname}!`, 'Konto zostało utworzone');
+    } else {
+        // potwierdzanie maila włączone: czekamy na kliknięcie linku
+        showAuthSplash('📧', 'Sprawdź skrzynkę!', `Wysłaliśmy link aktywacyjny na ${email}`, 4000);
     }
 }
-
 function showAuthError(message) {
     const el = document.getElementById('authError');
     el.textContent = message;
@@ -974,9 +990,9 @@ function showAuthError(message) {
 function hideAuthError() {
     document.getElementById('authError').style.display = 'none';
 }
-
 // Tłumaczenie komunikatów Supabase na polski
 function translateAuthError(message) {
+    if (message.includes('Email not confirmed')) return 'Najpierw potwierdź adres email, kliknij link w wiadomości od Mapify';
     if (message.includes('Database error saving new user')) return 'Ten nick jest już zajęty';
     if (message.includes('Invalid login credentials')) return 'Nieprawidłowy email lub hasło';
     if (message.includes('already registered')) return 'Konto z tym emailem już istnieje';
@@ -994,7 +1010,7 @@ function translateAuthError(message) {
 });
 
 // Animacja zalogowania / wylogowania
-function showAuthSplash(icon, title, text) {
+function showAuthSplash(icon, title, text, duration = 1800) {
     const splash = document.getElementById('authSplash');
     document.getElementById('authSplashIcon').textContent = icon;
     document.getElementById('authSplashTitle').textContent = title;
@@ -1007,7 +1023,7 @@ function showAuthSplash(icon, title, text) {
     iconEl.style.animation = '';
 
     splash.classList.add('show');
-    setTimeout(() => splash.classList.remove('show'), 1800);
+    setTimeout(() => splash.classList.remove('show'), duration);
 }
 // ===== PROFIL UŻYTKOWNIKA =====
 
