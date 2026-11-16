@@ -876,12 +876,24 @@ async function initAuth() {
         history.replaceState(null, '', window.location.pathname); // czyścimy adres z tokenów
     }
 
+    db.auth.onAuthStateChange((event, session) => {
+        currentUser = session ? session.user : null;
+        updateAuthUI();
+        renderMarkers(lastShownPlaces); // przerysuj popupy, zachowując filtr
+
+        // Wejście z linku "zmień hasło"
+        if (event === 'PASSWORD_RECOVERY') {
+            document.getElementById('newPasswordModal').style.display = 'block';
+        }
+    });
+}
+
            db.auth.onAuthStateChange((event, session) => {
         currentUser = session ? session.user : null;
         updateAuthUI();
         renderMarkers(lastShownPlaces); // przerysuj popupy, zachowując filtr
     });
-}
+
 
 function updateAuthUI() {
     const btn = document.getElementById('authBtn');
@@ -919,26 +931,63 @@ function closeAuthModal() {
     document.getElementById('authPassword').value = '';
 }
 
-function toggleAuthMode() {
+// Tryby okienka: 'login', 'register', 'forgot'
+function setAuthMode(mode) {
     hideAuthError();
-    authMode = authMode === 'login' ? 'register' : 'login';
-    const isLogin = authMode === 'login';
+    authMode = mode;
 
-    document.getElementById('authNickname').style.display = isLogin ? 'none' : 'block';
-    document.getElementById('authTitle').textContent = isLogin ? 'Logowanie' : 'Rejestracja';
-    document.getElementById('authSubmit').textContent = isLogin ? 'Zaloguj' : 'Zarejestruj';
-    document.getElementById('authSwitch').textContent = isLogin
-        ? 'Nie masz konta? Zarejestruj się'
-        : 'Masz już konto? Zaloguj się';
+    const show = (id, visible) => {
+        document.getElementById(id).style.display = visible ? 'block' : 'none';
+    };
+    show('authNickname', mode === 'register');
+    show('authPassword', mode !== 'forgot');
+    show('authForgotWrap', mode === 'login');
+
+    const titles   = { login: 'Logowanie', register: 'Rejestracja', forgot: 'Reset hasła' };
+    const buttons  = { login: 'Zaloguj', register: 'Zarejestruj', forgot: 'Wyślij link' };
+    const switches = {
+        login: 'Nie masz konta? Zarejestruj się',
+        register: 'Masz już konto? Zaloguj się',
+        forgot: 'Wróć do logowania'
+    };
+
+    document.getElementById('authTitle').textContent = titles[mode];
+    document.getElementById('authSubmit').textContent = buttons[mode];
+    document.getElementById('authSwitch').textContent = switches[mode];
+}
+
+// Link na dole okienka: z rejestracji/resetu wraca do logowania, z logowania idzie do rejestracji
+function toggleAuthMode() {
+    setAuthMode(authMode === 'login' ? 'register' : 'login');
 }
 
 async function submitAuth() {
+    const mode = authMode; // zapamiętujemy, bo closeAuthModal() przestawia tryb na 'login'
     const nickname = document.getElementById('authNickname').value.trim();
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
+    const redirectTo = window.location.origin + window.location.pathname; // linki z maili wracają na tę stronę
 
     hideAuthError();
 
+    // --- Reset hasła: potrzebny tylko email ---
+    if (mode === 'forgot') {
+        if (!email) {
+            showAuthError('Podaj adres email');
+            return;
+        }
+        const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) {
+            console.error('Błąd resetu hasła:', error.message);
+            showAuthError(translateAuthError(error.message));
+            return;
+        }
+        closeAuthModal();
+        showAuthSplash('📧', 'Sprawdź skrzynkę!', 'Jeśli konto istnieje, wysłaliśmy link do zmiany hasła', 4000);
+        return;
+    }
+
+    // --- Logowanie i rejestracja ---
     if (!email || !password) {
         showAuthError('Podaj email i hasło');
         return;
@@ -946,23 +995,22 @@ async function submitAuth() {
 
     let result;
 
-    if (authMode === 'login') {
+    if (mode === 'login') {
         result = await db.auth.signInWithPassword({ email, password });
     } else {
         if (!/^[a-zA-Z0-9_ąćęłńóśźżĄĆĘŁŃÓŚŹŻ-]{3,20}$/.test(nickname)) {
             showAuthError('Nick: 3-20 znaków, tylko litery, cyfry, _ i -');
             return;
         }
-               result = await db.auth.signUp({
+        result = await db.auth.signUp({
             email,
             password,
             options: {
-                data: { nickname }, // nick trafia do profilu
-                emailRedirectTo: window.location.origin + window.location.pathname // link z maila wraca na tę stronę
+                data: { nickname },
+                emailRedirectTo: redirectTo
             }
         });
     }
-
 
     if (result.error) {
         console.error('Błąd logowania/rejestracji:', result.error.message);
@@ -970,14 +1018,12 @@ async function submitAuth() {
         return;
     }
 
-        closeAuthModal();
-    if (authMode === 'login') {
+    closeAuthModal();
+    if (mode === 'login') {
         showAuthSplash('👋', `Witaj, ${getDisplayName()}!`, 'Zalogowano pomyślnie');
     } else if (result.data.session) {
-        // potwierdzanie maila wyłączone: od razu zalogowany
         showAuthSplash('🎉', `Witaj w Mapify, ${nickname}!`, 'Konto zostało utworzone');
     } else {
-        // potwierdzanie maila włączone: czekamy na kliknięcie linku
         showAuthSplash('📧', 'Sprawdź skrzynkę!', `Wysłaliśmy link aktywacyjny na ${email}`, 4000);
     }
 }
@@ -1524,6 +1570,33 @@ function addHereFromSearch() {
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.geo-search')) geoResults.classList.remove('show');
 });
+// ===== RESET HASŁA: ustawienie nowego =====
+async function saveNewPassword() {
+    const pass = document.getElementById('resetPassword').value;
+    const repeat = document.getElementById('resetPasswordRepeat').value;
+    const errorEl = document.getElementById('resetError');
+
+    const showError = (text) => {
+        errorEl.textContent = text;
+        errorEl.style.display = 'block';
+    };
+
+    if (pass.length < 6) return showError('Hasło musi mieć co najmniej 6 znaków');
+    if (pass !== repeat) return showError('Hasła nie są takie same');
+
+    const { error } = await db.auth.updateUser({ password: pass });
+    if (error) {
+        console.error('Błąd zmiany hasła:', error.message);
+        return showError('Nie udało się zmienić hasła. Spróbuj wysłać link jeszcze raz');
+    }
+
+    errorEl.style.display = 'none';
+    document.getElementById('resetPassword').value = '';
+    document.getElementById('resetPasswordRepeat').value = '';
+    document.getElementById('newPasswordModal').style.display = 'none';
+    history.replaceState(null, '', window.location.pathname); // czyścimy adres z tokenów
+    showAuthSplash('🔑', 'Hasło zmienione!', 'Jesteś zalogowany', 3000);
+}
 // ===== START =====
 // ===== USUWANIE KONTA =====
 function showDeleteMessage(text) {

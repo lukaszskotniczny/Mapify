@@ -1607,6 +1607,9 @@
                    style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
                         <input type="password" id="authPassword" placeholder="Hasło (min. 6 znaków)"
                    style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
+                   <p id="authForgotWrap" style="text-align: right; margin: 0 0 5px;">
+    <a href="#" onclick="setAuthMode('forgot'); return false;" style="font-size: 13px;">Nie pamiętasz hasła?</a>
+</p>
 
             <p id="authError" style="display: none; color: #e74c3c; background: #fdecea;
                padding: 8px 10px; border-radius: 5px; font-size: 14px; margin: 5px 0;"></p>
@@ -1717,6 +1720,22 @@
             <button id="confirmCancel" class="confirm-btn confirm-cancel">Anuluj</button>
             <button id="confirmOk" class="confirm-btn confirm-danger">Usuń</button>
         </div>
+    </div>
+</div>
+<div id="newPasswordModal" class="modal">
+    <div class="modal-content" style="max-width: 380px;">
+        <h2>🔑 Ustaw nowe hasło</h2>
+        <input type="password" id="resetPassword" placeholder="Nowe hasło (min. 6 znaków)"
+               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
+        <input type="password" id="resetPasswordRepeat" placeholder="Powtórz nowe hasło"
+               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
+        <p id="resetError" style="display: none; color: #e74c3c; background: #fdecea;
+           padding: 8px 10px; border-radius: 5px; font-size: 14px; margin: 5px 0;"></p>
+        <button onclick="saveNewPassword()"
+                style="width: 100%; padding: 10px; background: #667eea; color: white;
+                       border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
+            Zapisz nowe hasło
+        </button>
     </div>
 </div>
 <button id="addPlaceBtn" class="add-place-fab" onclick="toggleAddPlaceMode()" title="Dodaj miejsce">＋</button>
@@ -1831,6 +1850,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>
