@@ -6,7 +6,15 @@ Projekt powstał jako część pracy inżynierskiej na kierunku Informatyka i Ek
 
 Wersja online: https://lukaszskotniczny.github.io/Mapify/
 
-![Mapify](screenshot.png)
+![Strona główna](screenshots/main.png)
+
+![Popup miejsca](screenshots/popup.png)
+
+![Dodawanie miejsca w trybie nocnym](screenshots/dodawanie_miejsc.png)
+
+![Profil użytkownika](screenshots/profil.png)
+
+<img src="screenshots/wersja_mobilna.jpg" width="300" alt="Widok na telefonie">
 
 
 ## Funkcje
