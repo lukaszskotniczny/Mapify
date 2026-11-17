@@ -1,130 +1,105 @@
 # Mapify
 
-**Interaktywna aplikacja webowa do zapisywania i odkrywania miejsc połączonych z muzyką.** Każde miejsce ma przypisany utwór z Spotify, kategorię wspomnień oraz możliwość dodawania komentarzy i polubień przez społeczność.
+Mapify to aplikacja webowa, która łączy mapę z muzyką. Użytkownik zaznacza na mapie miejsce, przypisuje do niego utwór, który mu się z nim kojarzy, i krótko opisuje, dlaczego to miejsce jest dla niego ważne. Inni użytkownicy mogą te miejsca przeglądać, polubić i skomentować.
+
+Projekt powstał jako część pracy inżynierskiej na kierunku Informatyka i Ekonometria (Uniwersytet Andrzeja Frycza Modrzewskiego w Krakowie).
+
+Wersja online: https://lukaszskotniczny.github.io/Mapify/
+
 ![Mapify](screenshot.png)
-**Live Demo:** https://lukaszskotniczny.github.io/Mapify/
 
-## Funkcjonalności
 
-### Interaktywna Mapa
-- Leaflet.js z kolorowymi markerami według kategorii
-- Tryb nocny i jasny z automatycznym przełączaniem warstw mapy
-- Animacje przy dodawaniu nowych miejsc
-- Pełna responsywność - działa na komputerach, tabletach i smartfonach
-- Dodawanie miejsc przez podwójne kliknięcie
+## Funkcje
 
-### Integracja Spotify
-- Wyszukiwarka utworów z API Spotify
-- Podgląd okładek albumów
-- Bezpośrednie linki do utworów
-- Preview audio
+Mapa i miejsca
+- interaktywna mapa z pinezkami w kolorach kategorii
+- dodawanie miejsca dwuklikiem na mapie albo przyciskiem + (wygodniejszym na telefonie)
+- wyszukiwarka lokalizacji na mapie, np. konkretnej siłowni, ulicy czy parku
+- filtrowanie miejsc po kategorii i wyszukiwanie po tytule, wykonawcy lub opisie (Enter przechodzi do kolejnego wyniku)
+- losowanie miejsca
+- statystyki: liczba miejsc, najpopularniejsza kategoria, pięciu najczęściej dodawanych wykonawców
 
-### Wyszukiwanie i Filtrowanie
-- Wyszukiwarka miejsc po tytule, artyście lub opisie
-- Filtry kategorii z dynamicznymi licznikami
-- Funkcja losowania miejsc z animacją
-- Kategorie: Bieganie, Randka, Nostalgiczne, Trening, Relaks, Impreza, Inne
+Muzyka
+- wyszukiwarka utworów z okładkami albumów
+- odsłuch 30-sekundowego fragmentu, zarówno w wyszukiwarce (po najechaniu na utwór), jak i w dodanym miejscu
+- link do wyszukania utworu w Spotify
 
-### Social Features
-- System polubień współdzielony między użytkownikami
-- Komentarze z datą i imieniem autora
-- Realtime synchronizacja przez Supabase
-- Unikalne ID użytkownika przechowywane w localStorage
+Konta i społeczność
+- rejestracja z nickiem i potwierdzeniem adresu email
+- logowanie, reset zapomnianego hasła
+- polubienia i komentarze (dostępne po zalogowaniu, przeglądanie działa bez konta)
+- profil użytkownika: dodane miejsca, polubione miejsca, własne komentarze
+- zmiana nicku i hasła, usuwanie konta razem ze wszystkimi danymi
 
-### Statystyki
-- Liczba wszystkich miejsc na mapie
-- Top 5 najczęściej używanych artystów
-- Najpopularniejsza kategoria wspomnień
-- Dynamiczne liczniki przy filtrach
+Pozostałe
+- tryb jasny i nocny
+- wersja dostosowana do telefonów
 
-### UI/UX
-- Animowany ekran powitalny
-- System powiadomień toast
-- Płynne animacje i przejścia
-- Intuicyjny interfejs użytkownika
 
-## Stack Technologiczny
+## Technologie
 
-### Backend
-- Python 3.11+
-- Flask - framework webowy
-- SQLAlchemy - ORM
-- SQLite - lokalna baza danych
-- Spotipy - klient Spotify API
+- HTML, CSS, JavaScript (bez frameworków)
+- Leaflet.js do obsługi mapy, podkład z OpenStreetMap
+- Supabase: baza danych PostgreSQL, logowanie użytkowników, funkcje serwerowe (Edge Functions)
+- Deezer API do wyszukiwania utworów i fragmentów do odsłuchu
+- Photon (OpenStreetMap) do wyszukiwania lokalizacji
+- GitHub Pages jako hosting strony
 
-### Frontend
-- HTML5/CSS3
-- JavaScript (ES6+)
-- Leaflet.js - biblioteka map
-- Spotify Web API
 
-### Cloud
-- Supabase - PostgreSQL database dla funkcji społecznościowych
-- GitHub Pages - hosting frontendu
+## Jak to działa
 
-## Instalacja i Uruchomienie
+Aplikacja działa w architekturze klient-serwer. Strona (klient) jest statyczna i hostowana na GitHub Pages. Rolę serwera pełni Supabase.
 
-### Wymagania
-- Python 3.8 lub nowszy
-- Konto Spotify Developer
+- Dane (miejsca, polubienia, komentarze, profile) są przechowywane w bazie PostgreSQL w Supabase.
+- Dostęp do danych zabezpieczają polityki Row Level Security. Każdy może czytać miejsca i komentarze, ale dodawać, zmieniać i usuwać może tylko zalogowany użytkownik i tylko swoje wpisy. Ograniczenia działają po stronie bazy, więc nie da się ich obejść z poziomu przeglądarki.
+- Wyszukiwanie utworów przechodzi przez funkcję serwerową `music-search`, która odpytuje Deezer API. Dzięki temu strona nie łączy się z zewnętrznym API bezpośrednio, a dostawcę muzyki można zmienić bez zmian po stronie strony.
+- Linki do fragmentów utworów z Deezera wygasają po pewnym czasie, dlatego przy odtwarzaniu aplikacja za każdym razem pobiera aktualny link na podstawie identyfikatora utworu.
 
-### Backend
+Baza danych składa się z czterech tabel:
+
+| Tabela | Zawartość |
+|---|---|
+| `places` | dodane miejsca: współrzędne, utwór, wykonawca, kategoria, opis, autor |
+| `likes` | polubienia (jedno na użytkownika dla danego miejsca) |
+| `comments` | komentarze do miejsc |
+| `profiles` | nicki użytkowników (unikalne) |
+
+Usunięcie miejsca usuwa też jego polubienia i komentarze. Usunięcie konta usuwa wszystkie dane użytkownika.
+
+
+## Uruchomienie lokalnie
+
+Wystarczy Python (do prostego serwera) i przeglądarka.
+
 ```bash
-cd backend
-pip install -r requirements.txt
-python app.py
+git clone https://github.com/lukaszskotniczny/mapify.git
+cd mapify
+python -m http.server 8000
 ```
 
-Backend uruchomi się na `http://localhost:5000`
+Następnie w przeglądarce: http://localhost:8000
 
-### Frontend
+Strony nie warto otwierać bezpośrednio z pliku (dwuklikiem na `index.html`), bo serwery map OpenStreetMap blokują takie zapytania i mapa się nie wyświetli.
 
-Otwórz plik `index.html` w przeglądarce lub użyj Live Server w VS Code.
+Aplikacja korzysta z istniejącego projektu Supabase, więc lokalnie działa od razu, na tych samych danych co wersja online.
 
-**Funkcje społecznościowe działają z Supabase bez potrzeby uruchamiania backendu lokalnie.**
 
-## Kategorie Miejsc
+## Struktura projektu
 
-- **Bieganie** - miejsca związane z aktywnością fizyczną
-- **Randka** - romantyczne miejsca
-- **Nostalgiczne** - miejsca związane z wspomnieniami
-- **Trening** - miejsca treningowe i siłownie
-- **Relaks** - miejsca do odpoczynku
-- **Impreza** - miejsca imprezowe
-- **Inne** - pozostałe kategorie
+```
+mapify/
+  index.html    wygląd strony i style
+  app.js        cała logika aplikacji
+  README.md
+```
 
-## Responsywność
 
-Aplikacja jest w pełni responsywna i działa na:
-- Desktop (1920px+)
-- Laptop (1366px+)
-- Tablet (768px+)
-- Smartfon (320px+)
-
-## Wersje Aplikacji
-
-### Online (GitHub Pages)
-- Demo z przykładowymi miejscami
-- Pełna funkcjonalność UI
-- Aktywne social features (polubienia, komentarze)
-- Brak możliwości dodawania nowych miejsc
-
-### Lokalna (z backendem)
-- Pełna funkcjonalność
-- Dodawanie miejsc przez Spotify API
-- Edycja i usuwanie miejsc
-- Wszystkie funkcje social
-- 
 ## Autor
 
-**Łukasz Skotniczny**  
+Łukasz Skotniczny
+GitHub: https://github.com/lukaszskotniczny
 
-GitHub: [@lukaszskotniczny](https://github.com/lukaszskotniczny)
 
 ## Licencja
 
-MIT License
-
-**Live Demo:** https://lukaszskotniczny.github.io/Mapify/  
-**Repozytorium:** https://github.com/lukaszskotniczny/mapify
-
+MIT
