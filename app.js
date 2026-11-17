@@ -1,44 +1,38 @@
-// =====================================================================
-// MAPIFY: interaktywna mapa muzycznych wspomnień
-// Frontend (Leaflet.js) + Supabase (baza, logowanie, Edge Functions)
-// =====================================================================
-
-
-// ===== KONFIGURACJA SUPABASE =====
-// Klucz "anon" jest publiczny z założenia; dostęp do danych chronią polityki RLS w bazie.
+// Supabase
+// klucz anon jest publiczny, dane chroni RLS w bazie
 const SUPABASE_URL = 'https://kzvyvbluisghdeajkttd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dnl2Ymx1aXNnaGRlYWprdHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTE3ODYsImV4cCI6MjA3Nzk4Nzc4Nn0.SS2c25L_NAfgijyt6nmS3bOVqc73Gtmq6aQk91MHZtU';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 
-// ===== MAPA =====
+// Mapa
 const map = L.map('map').setView([50.0614, 19.9366], 13);
 
-// Podpis źródła mapy (wymóg licencji OpenStreetMap)
+// podpis wymagany przez licencję OSM
 const osmCredit = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
 
-// Jedna warstwa mapy; tryb nocny robi filtr CSS (klasa dark-mode)
+// tryb nocny to filtr CSS na tej samej warstwie
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: osmCredit,
     maxZoom: 19
 }).addTo(map);
 
 
-// ===== STAN APLIKACJI =====
-let markers = [];          // pinezki aktualnie na mapie
-let allPlaces = [];        // wszystkie miejsca z bazy
-let lastShownPlaces = [];  // co aktualnie jest na mapie (do przerysowania po zalogowaniu)
+// Stan aplikacji
+let markers = [];
+let allPlaces = [];
+let lastShownPlaces = [];
 
-let currentUser = null;    // zalogowany użytkownik albo null
-let authMode = 'login';    // tryb okienka logowania: 'login', 'register', 'forgot'
+let currentUser = null;
+let authMode = 'login';
 
-let currentLat, currentLng; // współrzędne nowego miejsca
+let currentLat, currentLng;
 
 const modal = document.getElementById('addPlaceModal');
 const form = document.getElementById('addPlaceForm');
 
 
-// ===== FUNKCJE POMOCNICZE =====
+// Funkcje pomocnicze
 function getCategoryColor(category) {
     const colors = {
         'bieganie': '#3498db',
@@ -79,18 +73,30 @@ function createColoredIcon(color) {
     });
 }
 
-// Zabezpieczenie przed wstrzyknięciem HTML (np. w komentarzach)
+// zabezpieczenie przed wstrzyknięciem HTML
 function safeText(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Jak safeText, ale dodatkowo bezpieczne wewnątrz onclick='...' (apostrofy)
+// jak safeText, ale też do użycia w onclick='...'
 function escapeHtml(text) {
     return safeText(text).replace(/'/g, '\\\'');
 }
+// Odmiana: 1 miejsce, 2 miejsca, 5 miejsc
+function plural(n, one, few, many) {
+    if (n === 1) return one;
+    const r10 = n % 10, r100 = n % 100;
+    if (r10 >= 2 && r10 <= 4 && (r100 < 12 || r100 > 14)) return few;
+    return many;
+}
 
+function setStat(id, n, one, few, many) {
+    const el = document.getElementById(id);
+    el.textContent = n;
+    el.nextElementSibling.textContent = plural(n, one, few, many);
+}
 function showToast(message, icon = '✅', duration = 3000) {
     const toast = document.getElementById('toast');
     document.querySelector('.toast-icon').textContent = icon;
@@ -100,8 +106,7 @@ function showToast(message, icon = '✅', duration = 3000) {
     setTimeout(() => toast.classList.remove('show'), duration);
 }
 
-// Ładne okienko potwierdzenia zamiast confirm()
-// Zwraca true (kliknięto przycisk potwierdzenia) albo false (Anuluj / kliknięcie obok)
+// własne okienko zamiast confirm(), zwraca true/false
 function showConfirm(title, text, okLabel = 'Usuń') {
     return new Promise(resolve => {
         const confirmModal = document.getElementById('confirmModal');
@@ -129,9 +134,8 @@ function showConfirm(title, text, okLabel = 'Usuń') {
 }
 
 
-// ===== ŁADOWANIE I RYSOWANIE MIEJSC =====
-
-// Zamiana nazw kolumn z bazy (song_title) na nazwy używane w kodzie (songTitle)
+// Ładowanie i rysowanie miejsc
+// song_title z bazy -> songTitle w kodzie
 function mapPlace(row) {
     return {
         id: row.id,
@@ -166,7 +170,6 @@ async function loadPlaces() {
     renderMarkers();
 }
 
-// Treść popupu jednego miejsca
 function buildPopup(place) {
     const color = getCategoryColor(place.category);
     const isMine = currentUser && place.userId === currentUser.id;
@@ -236,7 +239,7 @@ function buildPopup(place) {
     `;
 }
 
-// Rysuje pinezki. Bez argumentu = wszystkie miejsca.
+// bez argumentu rysuje wszystkie miejsca
 function renderMarkers(placesToShow = allPlaces) {
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
@@ -246,7 +249,7 @@ function renderMarkers(placesToShow = allPlaces) {
         const icon = createColoredIcon(getCategoryColor(place.category));
         const marker = L.marker([place.lat, place.lng], { icon: icon }).addTo(map);
 
-        // Polubienia i komentarze ładujemy dopiero przy otwarciu popupu
+        // polubienia i komentarze ładujemy dopiero po otwarciu
         marker.on('popupopen', async () => {
             await updateLikeCount(place.id);
             await loadComments(place.id);
@@ -262,10 +265,9 @@ function renderMarkers(placesToShow = allPlaces) {
         markers.push(marker);
     });
 
-    updateStats(allPlaces); // statystyki zawsze dla wszystkich miejsc
+    updateStats(allPlaces);
 }
 
-// Znajduje pinezkę danego miejsca na mapie
 function findMarker(place) {
     return markers.find(m => {
         const ll = m.getLatLng();
@@ -273,7 +275,6 @@ function findMarker(place) {
     });
 }
 
-// Lot do miejsca na mapie i otwarcie popupu
 function goToPlace(placeId) {
     const place = allPlaces.find(p => Number(p.id) === Number(placeId));
     if (!place) {
@@ -282,7 +283,6 @@ function goToPlace(placeId) {
     }
 
     if (window.innerWidth < 768) closeProfile(); // na telefonie panel zasłania mapę
-
     map.flyTo([place.lat, place.lng], 16, { duration: 1.2 });
 
     setTimeout(() => {
@@ -312,7 +312,6 @@ function updateStats(places) {
         return;
     }
 
-    // Najpopularniejsza kategoria
     const categoryCount = {};
     places.forEach(place => {
         categoryCount[place.category] = (categoryCount[place.category] || 0) + 1;
@@ -325,7 +324,6 @@ function updateStats(places) {
     document.getElementById('topCategory').textContent =
         `${getCategoryIcon(topCategory)} ${topCategory} (${categoryCount[topCategory]}x)`;
 
-    // Top 5 artystów
     const artistCount = {};
     places.forEach(place => {
         artistCount[place.artist] = (artistCount[place.artist] || 0) + 1;
@@ -338,8 +336,7 @@ function updateStats(places) {
     document.getElementById('topArtists').innerHTML = sortedArtists.map((artist, index) => `
         <div class="top-artist-item">
             <span class="top-artist-name">${index + 1}. ${safeText(artist[0] || '')}</span>
-            <span class="top-artist-count">${artist[1]} ${artist[1] === 1 ? 'miejsce' : 'miejsca'}</span>
-        </div>
+            <span class="top-artist-count">${artist[1]} ${plural(artist[1], 'miejsce', 'miejsca', 'miejsc')}</span>        </div>
     `).join('');
 
     updateFilterCounts(places);
@@ -361,9 +358,7 @@ function updateFilterCounts(places) {
 }
 
 
-// ===== DODAWANIE MIEJSC =====
-
-// Otwiera formularz dodawania dla wskazanego punktu
+// Dodawanie miejsc
 function openAddPlaceForm(latlng) {
     if (!currentUser) {
         showToast('Zaloguj się, żeby dodać miejsce', '🔒');
@@ -382,12 +377,12 @@ function closeAddPlaceModal() {
     form.reset();
 }
 
-// Komputer: dwuklik na mapę
+// dwuklik na komputerze
 map.on('dblclick', function(e) {
     openAddPlaceForm(e.latlng);
 });
 
-// Przycisk ＋ (głównie telefon): włącz tryb wybierania, potem stuknięcie w mapę
+// przycisk + (głównie na telefonie): najpierw tryb wybierania, potem stuknięcie w mapę
 let addPlaceMode = false;
 
 function toggleAddPlaceMode() {
@@ -409,16 +404,14 @@ function toggleAddPlaceMode() {
 
 map.on('click', function(e) {
     if (!addPlaceMode) return;
-    toggleAddPlaceMode();       // wyłącz tryb wybierania
-    openAddPlaceForm(e.latlng); // otwórz formularz z tą lokalizacją
+    toggleAddPlaceMode();
+    openAddPlaceForm(e.latlng);
 });
 
-// Kliknięcie w tło poza formularzem zamyka go
 modal.addEventListener('click', (e) => {
     if (e.target === modal) closeAddPlaceModal();
 });
 
-// Wybór kategorii w formularzu ("pigułki")
 function selectCategory(value) {
     document.getElementById('category').value = value;
     document.querySelectorAll('.category-chip').forEach(chip => {
@@ -430,7 +423,6 @@ document.querySelectorAll('.category-chip').forEach(chip => {
     chip.addEventListener('click', () => selectCategory(chip.dataset.value));
 });
 
-// Po wyczyszczeniu formularza wróć do domyślnej kategorii
 form.addEventListener('reset', () => {
     setTimeout(() => selectCategory('bieganie'), 0);
 });
@@ -487,7 +479,7 @@ async function addPlace(lat, lng, songTitle, artist, category, description, spot
     showToast('🎉 Miejsce dodane pomyślnie!', '✅');
     await loadPlaces();
 
-    // Filtr wraca na "Wszystkie", żeby nowe miejsce było widoczne
+    // wracamy na "Wszystkie", żeby było widać nowe miejsce
     document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelector('.filter-btn').classList.add('active');
 
@@ -507,7 +499,7 @@ async function addPlace(lat, lng, songTitle, artist, category, description, spot
 }
 
 
-// ===== USUWANIE MIEJSC =====
+// Usuwanie miejsc
 async function deletePlace(placeId) {
     if (!currentUser) {
         showToast('Zaloguj się, żeby usuwać miejsca', '🔒');
@@ -533,7 +525,7 @@ async function deletePlace(placeId) {
         return;
     }
 
-    // RLS po cichu blokuje usuwanie cudzych miejsc: wtedy nic nie zostaje usunięte
+    // RLS nie zwraca błędu przy cudzym miejscu, po prostu nic nie usuwa
     if (!data || data.length === 0) {
         showToast('Możesz usuwać tylko swoje miejsca', '🔒');
         return;
@@ -549,7 +541,7 @@ async function deletePlace(placeId) {
 }
 
 
-// ===== WYSZUKIWARKA UTWORÓW (Deezer przez Edge Function "music-search") =====
+// Wyszukiwarka utworów (Deezer, przez funkcję music-search w Supabase)
 let musicSearchTimeout;
 const spotifySearchInput = document.getElementById('spotifySearch');
 const spotifyResults = document.getElementById('spotifyResults');
@@ -578,14 +570,14 @@ spotifySearchInput.addEventListener('input', function(e) {
     }, 500);
 });
 
-// Jeden wspólny odtwarzacz do podglądów w wyszukiwarce (najechanie myszką)
+// podgląd po najechaniu na wynik
 const previewAudio = new Audio();
 previewAudio.volume = 0.4;
 
 function playPreview(url, el) {
     if (!url) return;
     previewAudio.src = url;
-    previewAudio.play().catch(() => {}); // przeglądarka może zablokować dźwięk, wtedy po prostu cisza
+    previewAudio.play().catch(() => {});
     el.classList.add('playing');
 }
 
@@ -634,17 +626,16 @@ function selectSpotifyTrack(id, name, artist, spotifyUrl, image, previewUrl) {
 }
 
 
-// ===== ODTWARZANIE FRAGMENTU W POPUPIE =====
+// Odtwarzanie fragmentu utworu w popupie
 const placeAudio = new Audio();
 placeAudio.volume = 0.6;
 let playingPlaceId = null;
 
-// Pobiera świeży link do podglądu (linki z Deezera wygasają)
+// linki z Deezera wygasają, więc za każdym razem pobieramy świeży
 async function getFreshPreview(place) {
     const body = place.deezerId
         ? { trackId: place.deezerId }
-        : { q: `${place.songTitle} ${place.artist || ''}` }; // stare miejsca: szukamy po tytule
-
+        : { q: `${place.songTitle} ${place.artist || ''}` }; // starsze miejsca nie mają deezer_id
     const { data, error } = await db.functions.invoke('music-search', { body });
     if (error || !data) return null;
 
@@ -652,7 +643,7 @@ async function getFreshPreview(place) {
 }
 
 async function togglePlacePreview(placeId) {
-    // Kliknięcie w grający utwór = pauza
+
     if (playingPlaceId === placeId) {
         stopPlacePreview();
         return;
@@ -692,15 +683,15 @@ function stopPlacePreview() {
     playingPlaceId = null;
 }
 
-placeAudio.addEventListener('ended', stopPlacePreview); // koniec fragmentu
-map.on('popupclose', stopPlacePreview);                 // zamknięcie popupu = cisza
+placeAudio.addEventListener('ended', stopPlacePreview);
+map.on('popupclose', stopPlacePreview);
 
 
-// ===== WYSZUKIWARKA DODANYCH MIEJSC (tytuł, wykonawca, opis) =====
+// Wyszukiwarka dodanych miejsc
 const placeSearchInput = document.getElementById('placeSearch');
 let searchTimeout;
-let searchMatches = []; // znalezione miejsca
-let searchIndex = -1;   // które z nich jest teraz pokazane
+let searchMatches = [];
+let searchIndex = -1;
 
 placeSearchInput.addEventListener('input', function(e) {
     clearTimeout(searchTimeout);
@@ -734,12 +725,11 @@ placeSearchInput.addEventListener('input', function(e) {
             const bounds = L.latLngBounds(searchMatches.map(p => [p.lat, p.lng]));
             map.fitBounds(bounds, { padding: [50, 50] });
             const n = searchMatches.length;
-            showToast(`Znaleziono ${n} ${n < 5 ? 'miejsca' : 'miejsc'}. Wciśnij Enter, żeby przejść do kolejnego`, '🔍', 3500);
+            showToast(`Znaleziono ${n} ${plural(n, 'miejsce', 'miejsca', 'miejsc')}. Wciśnij Enter, żeby przejść do kolejnego`, '🔍', 3500);
         }
     }, 500);
 });
 
-// Pokazuje jedno z wyszukanych miejsc: lot na mapie + popup
 function showSearchResult(index) {
     searchIndex = index;
     const place = searchMatches[index];
@@ -750,7 +740,8 @@ function showSearchResult(index) {
     }
 }
 
-// Enter = następne miejsce, Shift + Enter = poprzednie
+
+// Enter - następne, Shift+Enter - poprzednie
 placeSearchInput.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter' || searchMatches.length === 0) return;
     e.preventDefault();
@@ -764,13 +755,12 @@ placeSearchInput.addEventListener('keydown', function(e) {
 });
 
 
-// ===== WYSZUKIWARKA LOKALIZACJI NA MAPIE (geokodowanie: Photon / OpenStreetMap) =====
+// Wyszukiwarka miejsc na mapie (Photon / OpenStreetMap)
 let geoSearchTimeout;
 let geoFound = [];
 let searchMarker = null;
 let searchLatLng = null;
 
-// Pole wyszukiwania jako kontrolka mapy (prawy górny róg)
 const GeoSearchControl = L.Control.extend({
     options: { position: 'topright' },
     onAdd: function() {
@@ -780,7 +770,7 @@ const GeoSearchControl = L.Control.extend({
                    placeholder="🔎 Szukaj na mapie (siłownia, ulica, park...)" autocomplete="off">
             <div id="geoSearchResults" class="geo-search-results"></div>
         `;
-        // Kliknięcia i przewijanie w wyszukiwarce nie ruszają mapy
+        // żeby klikanie w wyszukiwarce nie ruszało mapy
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.disableScrollPropagation(div);
         return div;
@@ -798,7 +788,7 @@ geoInput.addEventListener('input', () => {
     if (q.length < 3) {
         geoResults.classList.remove('show');
         geoResults.innerHTML = '';
-        if (q.length === 0) clearSearchMarker(); // puste pole = znika pinezka
+        if (q.length === 0) clearSearchMarker();
         return;
     }
 
@@ -807,7 +797,7 @@ geoInput.addEventListener('input', () => {
 
 async function searchLocations(q) {
     try {
-        // Wyniki najbliżej aktualnego widoku mapy są wyżej na liście
+        // wyniki bliżej aktualnego widoku są wyżej
         const center = map.getCenter();
         const res = await fetch(
             `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lat=${center.lat}&lon=${center.lng}`
@@ -847,7 +837,7 @@ async function searchLocations(q) {
 
 function chooseLocation(index) {
     const f = geoFound[index];
-    const [lng, lat] = f.geometry.coordinates; // GeoJSON: najpierw długość, potem szerokość
+    const [lng, lat] = f.geometry.coordinates; // GeoJSON ma odwrotną kolejność
     const name = f.properties.name || f.properties.street || 'Wybrane miejsce';
 
     geoResults.classList.remove('show');
@@ -873,7 +863,6 @@ function chooseLocation(index) {
         </div>
     `);
 
-    // Popup otwieramy po zakończeniu lotu, żeby się nie rozjechał
     map.once('moveend', () => searchMarker && searchMarker.openPopup());
     map.flyTo(searchLatLng, 17, { duration: 1.2 });
 }
@@ -893,13 +882,12 @@ function addHereFromSearch() {
     geoInput.value = '';
 }
 
-// Kliknięcie poza wyszukiwarką chowa listę podpowiedzi
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.geo-search')) geoResults.classList.remove('show');
 });
 
 
-// ===== LOSOWE MIEJSCE =====
+// Losowe miejsce
 function randomPlace() {
     if (allPlaces.length === 0) {
         showToast('Brak miejsc na mapie', '🎲');
@@ -930,7 +918,7 @@ function randomPlace() {
 }
 
 
-// ===== MOTYW JASNY / NOCNY =====
+// Tryb jasny / nocny
 const themeToggle = document.getElementById('themeToggle');
 const themeIcon = document.querySelector('.theme-icon');
 
@@ -948,7 +936,7 @@ themeToggle.addEventListener('click', function() {
 });
 
 
-// ===== POLUBIENIA =====
+// Polubienia
 async function toggleLike(placeId) {
     if (!currentUser) {
         showToast('Zaloguj się, żeby polubić miejsce', '🔒');
@@ -1002,7 +990,7 @@ async function getLikeCount(placeId) {
 }
 
 async function isLikedByUser(placeId) {
-    if (!currentUser) return false; // gość nigdy nie ma polubień
+    if (!currentUser) return false;
 
     try {
         const { data } = await db
@@ -1024,12 +1012,12 @@ async function updateLikeCount(placeId) {
 
     const likeBtn = document.querySelector(`#like-btn-${placeId}`);
     if (likeBtn) {
-        likeBtn.innerHTML = `${isLiked ? '❤️' : '🤍'} ${count} ${count === 1 ? 'polubienie' : 'polubienia'}`;
+        likeBtn.innerHTML = `${isLiked ? '❤️' : '🤍'} ${count} ${plural(count, 'polubienie', 'polubienia', 'polubień')}`;
     }
 }
 
 
-// ===== KOMENTARZE =====
+// Komentarze
 async function addComment(placeId, commentText) {
     try {
         const { error } = await db
@@ -1037,7 +1025,7 @@ async function addComment(placeId, commentText) {
             .insert({
                 place_id: placeId,
                 user_id: currentUser.id,
-                user_name: getDisplayName(), // zapas, gdyby profil był niedostępny
+                user_name: getDisplayName(),
                 comment_text: commentText
             });
 
@@ -1056,7 +1044,7 @@ async function loadComments(placeId) {
     try {
         const { data: comments } = await db
             .from('comments')
-            .select('*, profiles(nickname)') // aktualny nick autora z tabeli profiles
+            .select('*, profiles(nickname)') // aktualny nick z tabeli profiles
             .eq('place_id', placeId)
             .order('created_at', { ascending: false });
 
@@ -1100,16 +1088,15 @@ async function submitComment(placeId) {
 }
 
 
-// ===== LOGOWANIE I REJESTRACJA =====
-
-// Nazwa do wyświetlania: nick, a jak go nie ma, to początek maila
+// Logowanie i rejestracja
+// nick, a jak go nie ma to początek maila
 function getDisplayName() {
     if (!currentUser) return '';
     return currentUser.user_metadata?.nickname || currentUser.email.split('@')[0];
 }
 
 async function initAuth() {
-    // Czy użytkownik właśnie wrócił z linku aktywacyjnego?
+    // wejście z linku aktywacyjnego z maila
     const cameFromSignupLink = window.location.hash.includes('type=signup');
 
     const { data } = await db.auth.getSession();
@@ -1118,15 +1105,14 @@ async function initAuth() {
 
     if (cameFromSignupLink && currentUser) {
         showAuthSplash('🎉', 'Konto aktywowane!', `Witaj w Mapify, ${getDisplayName()}!`, 3000);
-        history.replaceState(null, '', window.location.pathname); // czyścimy adres z tokenów
+        history.replaceState(null, '', window.location.pathname);
     }
 
     db.auth.onAuthStateChange((event, session) => {
         currentUser = session ? session.user : null;
         updateAuthUI();
-        renderMarkers(lastShownPlaces); // przerysuj popupy (np. przycisk usuwania), zachowując filtr
-
-        // Wejście z linku "zmień hasło"
+        renderMarkers(lastShownPlaces); // przycisk usuwania zależy od zalogowania
+        // wejście z linku do zmiany hasła
         if (event === 'PASSWORD_RECOVERY') {
             document.getElementById('newPasswordModal').style.display = 'block';
         }
@@ -1166,10 +1152,10 @@ function closeAuthModal() {
     ['authNickname', 'authEmail', 'authPassword'].forEach(id => {
         document.getElementById(id).value = '';
     });
-    setAuthMode('login'); // następne otwarcie zawsze od logowania
+    setAuthMode('login');
 }
 
-// Tryby okienka: 'login', 'register', 'forgot'
+// tryby: login, register, forgot
 function setAuthMode(mode) {
     hideAuthError();
     authMode = mode;
@@ -1194,21 +1180,19 @@ function setAuthMode(mode) {
     document.getElementById('authSwitch').textContent = switches[mode];
 }
 
-// Link na dole okienka: z rejestracji/resetu wraca do logowania, z logowania idzie do rejestracji
 function toggleAuthMode() {
     setAuthMode(authMode === 'login' ? 'register' : 'login');
 }
 
 async function submitAuth() {
-    const mode = authMode; // zapamiętujemy, bo closeAuthModal() przestawia tryb na 'login'
+    const mode = authMode; // closeAuthModal() przestawia tryb, więc zapamiętujemy
     const nickname = document.getElementById('authNickname').value.trim();
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
-    const redirectTo = window.location.origin + window.location.pathname; // linki z maili wracają na tę stronę
+    const redirectTo = window.location.origin + window.location.pathname;
 
     hideAuthError();
 
-    // --- Reset hasła: potrzebny tylko email ---
     if (mode === 'forgot') {
         if (!email) {
             showAuthError('Podaj adres email');
@@ -1225,7 +1209,6 @@ async function submitAuth() {
         return;
     }
 
-    // --- Logowanie i rejestracja ---
     if (!email || !password) {
         showAuthError('Podaj email i hasło');
         return;
@@ -1244,7 +1227,7 @@ async function submitAuth() {
             email,
             password,
             options: {
-                data: { nickname }, // nick trafia do tabeli profiles (trigger w bazie)
+                data: { nickname }, // trigger w bazie zapisze go w profiles
                 emailRedirectTo: redirectTo
             }
         });
@@ -1260,10 +1243,10 @@ async function submitAuth() {
     if (mode === 'login') {
         showAuthSplash('👋', `Witaj, ${getDisplayName()}!`, 'Zalogowano pomyślnie');
     } else if (result.data.session) {
-        // potwierdzanie maila wyłączone: od razu zalogowany
+
         showAuthSplash('🎉', `Witaj w Mapify, ${nickname}!`, 'Konto zostało utworzone');
     } else {
-        // potwierdzanie maila włączone: czekamy na kliknięcie linku
+        // czekamy na potwierdzenie maila
         showAuthSplash('📧', 'Sprawdź skrzynkę!', `Wysłaliśmy link aktywacyjny na ${email}`, 4000);
     }
 }
@@ -1278,7 +1261,7 @@ function hideAuthError() {
     document.getElementById('authError').style.display = 'none';
 }
 
-// Tłumaczenie komunikatów Supabase na polski
+// komunikaty Supabase po polsku
 function translateAuthError(message) {
     if (message.includes('Email not confirmed')) return 'Najpierw potwierdź adres email, kliknij link w wiadomości od Mapify';
     if (message.includes('Database error saving new user')) return 'Ten nick jest już zajęty';
@@ -1290,14 +1273,12 @@ function translateAuthError(message) {
     return 'Coś poszło nie tak. Spróbuj ponownie';
 }
 
-// Enter w okienku logowania = kliknięcie przycisku
 ['authNickname', 'authEmail', 'authPassword'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', (e) => {
         if (e.key === 'Enter') submitAuth();
     });
 });
 
-// Animacja zalogowania / wylogowania
 function showAuthSplash(icon, title, text, duration = 1800) {
     const splash = document.getElementById('authSplash');
     const iconEl = document.getElementById('authSplashIcon');
@@ -1306,7 +1287,6 @@ function showAuthSplash(icon, title, text, duration = 1800) {
     document.getElementById('authSplashTitle').textContent = title;
     document.getElementById('authSplashText').textContent = text;
 
-    // restart animacji ikony
     iconEl.style.animation = 'none';
     iconEl.offsetHeight;
     iconEl.style.animation = '';
@@ -1315,7 +1295,7 @@ function showAuthSplash(icon, title, text, duration = 1800) {
     setTimeout(() => splash.classList.remove('show'), duration);
 }
 
-// Reset hasła: ustawienie nowego po wejściu z linku w mailu
+// nowe hasło po wejściu z linku w mailu
 async function saveNewPassword() {
     const pass = document.getElementById('resetPassword').value;
     const repeat = document.getElementById('resetPasswordRepeat').value;
@@ -1339,12 +1319,12 @@ async function saveNewPassword() {
     document.getElementById('resetPassword').value = '';
     document.getElementById('resetPasswordRepeat').value = '';
     document.getElementById('newPasswordModal').style.display = 'none';
-    history.replaceState(null, '', window.location.pathname); // czyścimy adres z tokenów
+    history.replaceState(null, '', window.location.pathname);
     showAuthSplash('🔑', 'Hasło zmienione!', 'Jesteś zalogowany', 3000);
 }
 
 
-// ===== PROFIL UŻYTKOWNIKA =====
+// Profil
 function openProfile() {
     if (!currentUser) return;
     document.getElementById('profilePanel').classList.add('open');
@@ -1365,7 +1345,6 @@ function switchProfileTab(tab) {
     });
 }
 
-// Nazwa miejsca po ID (miejsca są już załadowane w allPlaces)
 function getPlaceLabel(placeId) {
     const place = allPlaces.find(p => Number(p.id) === Number(placeId));
     return place
@@ -1376,14 +1355,12 @@ function getPlaceLabel(placeId) {
 async function loadProfile() {
     const nick = getDisplayName();
 
-    // Nagłówek
     document.getElementById('profileAvatar').textContent = nick.charAt(0).toUpperCase();
     document.getElementById('profileNick').textContent = nick;
     const since = new Date(currentUser.created_at)
         .toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
     document.getElementById('profileSince').textContent = `W Mapify od: ${since}`;
 
-    // Dane z bazy
     const { data: likes } = await db
         .from('likes')
         .select('place_id, created_at')
@@ -1396,15 +1373,13 @@ async function loadProfile() {
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
 
-    // Moje miejsca (są już w allPlaces, nie trzeba pytać bazy)
+    // miejsca są już w allPlaces, nie trzeba pytać bazy
     const myPlaces = allPlaces.filter(p => p.userId === currentUser.id);
 
-    // Statystyki
-    document.getElementById('statPlaces').textContent = myPlaces.length;
-    document.getElementById('statLikes').textContent = likes ? likes.length : 0;
-    document.getElementById('statComments').textContent = comments ? comments.length : 0;
+    setStat('statPlaces', myPlaces.length, 'miejsce', 'miejsca', 'miejsc');
+setStat('statLikes', likes ? likes.length : 0, 'polubienie', 'polubienia', 'polubień');
+setStat('statComments', comments ? comments.length : 0, 'komentarz', 'komentarze', 'komentarzy');
 
-    // Zakładka: moje miejsca
     const placesDiv = document.getElementById('profileTab-places');
     if (myPlaces.length === 0) {
         placesDiv.innerHTML = `
@@ -1423,7 +1398,6 @@ async function loadProfile() {
         `).join('');
     }
 
-    // Zakładka: polubione
     const likedDiv = document.getElementById('profileTab-liked');
     if (!likes || likes.length === 0) {
         likedDiv.innerHTML = '<p class="profile-empty">Nie polubiłeś jeszcze żadnego miejsca 🤍</p>';
@@ -1439,7 +1413,6 @@ async function loadProfile() {
         }).join('');
     }
 
-    // Zakładka: komentarze
     const commentsDiv = document.getElementById('profileTab-comments');
     if (!comments || comments.length === 0) {
         commentsDiv.innerHTML = '<p class="profile-empty">Nie dodałeś jeszcze żadnego komentarza 💬</p>';
@@ -1476,10 +1449,9 @@ async function deleteMyComment(commentId, placeId) {
 
     showToast('🗑️ Komentarz usunięty', '✅');
     loadProfile();
-    loadComments(placeId); // odśwież popup, jeśli jest otwarty
+    loadComments(placeId);
 }
 
-// Komunikat pod polem w ustawieniach (zielony = sukces, czerwony = błąd)
 function showSettingsMessage(elementId, text, success) {
     const el = document.getElementById(elementId);
     el.textContent = text;
@@ -1502,7 +1474,7 @@ async function changeNickname() {
         return;
     }
 
-    // 1. Zmiana w tabeli profiles (tu baza pilnuje unikalności)
+    // unikalność nicku pilnuje baza
     const { error } = await db
         .from('profiles')
         .update({ nickname })
@@ -1514,7 +1486,7 @@ async function changeNickname() {
         return;
     }
 
-    // 2. Zmiana w danych konta (z nich czyta getDisplayName)
+    // getDisplayName czyta nick z danych konta, więc zmieniamy też tam
     const { data } = await db.auth.updateUser({ data: { nickname } });
     if (data && data.user) currentUser = data.user;
 
@@ -1550,7 +1522,7 @@ async function changePassword() {
         return;
     }
 
-    // 1. Sprawdź obecne hasło (ponowne logowanie)
+    // sprawdzamy obecne hasło logując się ponownie
     const { error: loginError } = await db.auth.signInWithPassword({
         email: currentUser.email,
         password: current
@@ -1560,7 +1532,6 @@ async function changePassword() {
         return;
     }
 
-    // 2. Ustaw nowe hasło
     const { error } = await db.auth.updateUser({ password: newPass });
     if (error) {
         showSettingsMessage('passwordMessage', 'Nie udało się zmienić hasła', false);
@@ -1573,7 +1544,7 @@ async function changePassword() {
     showSettingsMessage('passwordMessage', 'Hasło zostało zmienione! ✅', true);
 }
 
-// Usuwanie konta (RODO: prawo do usunięcia danych)
+// usuwanie konta (RODO)
 async function deleteAccount() {
     const input = document.getElementById('deletePassword');
     const password = input.value;
@@ -1583,7 +1554,6 @@ async function deleteAccount() {
         return;
     }
 
-    // 1. Sprawdź hasło
     const { error: loginError } = await db.auth.signInWithPassword({
         email: currentUser.email,
         password
@@ -1593,7 +1563,6 @@ async function deleteAccount() {
         return;
     }
 
-    // 2. Ostatnie potwierdzenie
     const ok = await showConfirm(
         'Usunąć konto na zawsze?',
         'Znikną wszystkie Twoje miejsca, polubienia i komentarze. Tej operacji nie można cofnąć.',
@@ -1601,7 +1570,7 @@ async function deleteAccount() {
     );
     if (!ok) return;
 
-    // 3. Usunięcie przez funkcję w bazie (delete_own_account)
+    // funkcja delete_own_account w bazie
     const { error } = await db.rpc('delete_own_account');
     if (error) {
         console.error('Błąd usuwania konta:', error);
@@ -1609,21 +1578,19 @@ async function deleteAccount() {
         return;
     }
 
-    // 4. Sprzątanie po stronie strony
     input.value = '';
     document.getElementById('deleteMessage').style.display = 'none';
     closeProfile();
-    await db.auth.signOut({ scope: 'local' }); // konto już nie istnieje, czyścimy tylko sesję w przeglądarce
+    await db.auth.signOut({ scope: 'local' }); // konta już nie ma, czyścimy tylko lokalną sesję
     await loadPlaces();
     showAuthSplash('👋', 'Konto usunięte', 'Dzięki, że byłeś z Mapify', 3000);
 }
 
-// Escape zamyka panel profilu
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeProfile();
 });
 
 
-// ===== START =====
+// Start aplikacji
 initAuth();
 loadPlaces();
