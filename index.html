@@ -3,26 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mapify: interaktywna mapa muzycznych wspomnień. Zaznacz miejsce, przypisz utwór i dziel się nim z innymi.">
     <title>Mapify</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
+        /* =========================================================
+           PODSTAWY
+           ========================================================= */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         h1 {
             text-align: center;
             color: white;
@@ -30,13 +35,18 @@
             font-size: 2.5em;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
-        
+
         #map {
             height: 600px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        
+
+        /* Celownik nad mapą w trybie wybierania miejsca */
+        #map.picking {
+            cursor: crosshair;
+        }
+
         .info-box {
             background: white;
             padding: 20px;
@@ -44,261 +54,7 @@
             margin-top: 20px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 9999;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-        }
-        
-        .modal-content {
-            background: white;
-            margin: 10% auto;
-            padding: 30px;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            animation: slideDown 0.3s ease;
-        }
-        
-        @keyframes slideDown {
-            from {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        
-        .close:hover {
-            color: #000;
-        }
-        
-        .modal-content h2 {
-            margin-bottom: 20px;
-            color: #667eea;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .btn-submit {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .btn-submit:hover {
-            transform: scale(1.02);
-        }
-        .stats-panel {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .stat-box {
-            flex: 1;
-            min-width: 200px;
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 48px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-        
-        .stat-text {
-            font-size: 20px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-            min-height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-size: 14px;
-        }
-        .filter-panel {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .filter-btn {
-            padding: 10px 20px;
-            background: white;
-            border: 2px solid #ddd;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .filter-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        .filter-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: #667eea;
-        }
-        .spotify-results {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            display: none;
-        }
-        
-        .spotify-results.show {
-            display: block;
-        }
-        
-        .spotify-result-item {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: background 0.2s;
-        }
-        
-        .spotify-result-item:hover {
-            background: #f5f5f5;
-        }
-        
-        .spotify-result-item:last-child {
-            border-bottom: none;
-        }
-        
-        .spotify-result-image {
-            width: 50px;
-            height: 50px;
-            border-radius: 5px;
-            object-fit: cover;
-        }
-        
-        .spotify-result-info {
-            flex: 1;
-        }
-        
-        .spotify-result-title {
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .spotify-result-artist {
-            font-size: 14px;
-            color: #666;
-        }
-        .stat-box-wide {
-            flex: 2;
-            min-width: 300px;
-        }
-        
-        .top-artist-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 6px;
-        }
-        
-        .top-artist-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .top-artist-name {
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .top-artist-count {
-            color: #667eea;
-            font-weight: bold;
-        }
-        .marker-pulse {
-            animation: markerPulse 0.5s ease-in-out 4 !important;
-        }
-        
-        .marker-pulse {
-            animation: markerPulse 0.5s ease-in-out 4 !important;
-        }
-        
-        @keyframes markerPulse {
-            0%, 100% {
-                filter: drop-shadow(0 0 0px rgba(102, 126, 234, 0)) brightness(1);
-            }
-            50% {
-                filter: drop-shadow(0 0 20px rgba(102, 126, 234, 1)) brightness(1.3);
-            }
-        }
+
         .theme-toggle {
             background: white;
             border: 2px solid #ddd;
@@ -313,111 +69,166 @@
             transition: all 0.3s;
             box-shadow: 0 3px 10px rgba(0,0,0,0.2);
         }
-        
+
         .theme-toggle:hover {
             transform: scale(1.1);
         }
-        
-        /* Tryb nocny */
-        body.dark-mode {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        }
-        
-        body.dark-mode .container {
-            color: white;
-        }
-        
-        body.dark-mode .stat-box,
-        body.dark-mode .info-box,
-        body.dark-mode .filter-btn {
-            background: #34495e;
-            color: white;
-            border-color: #4a5f7f;
-        }
-        
-        body.dark-mode .filter-btn.active {
+
+
+        /* =========================================================
+           EKRAN POWITALNY (nutki)
+           ========================================================= */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeOut 0.5s ease-in-out 2s forwards;
         }
-        
-        body.dark-mode .modal-content {
-            background: #2c3e50;
+
+        .splash-title {
             color: white;
-            
+            font-size: 48px;
+            text-align: center;
+            animation: splashTitleIn 2s ease-in-out;
+            text-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
-        body.dark-mode .modal-content {
-            background: #2c3e50;
-            color: white;
+
+        @keyframes splashTitleIn {
+            0%   { transform: scale(1.5); opacity: 0; }
+            50%  { transform: scale(1);   opacity: 1; }
+            100% { transform: scale(1);   opacity: 1; }
         }
-        
-        body.dark-mode .modal-content h2 {
-            color: white;
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
         }
-        
-        body.dark-mode .form-group label {
-            color: white !important;
+
+        .music-notes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
         }
-        
-        body.dark-mode .form-group input::placeholder,
-        body.dark-mode .form-group textarea::placeholder {
-            color: #aaa;
+
+        .note {
+            position: absolute;
+            font-size: 40px;
+            opacity: 0;
+            animation: float 3s ease-in-out infinite;
         }
-        
-        body.dark-mode .close {
-            color: white;
+
+        .note1 { top: 20%; left: 15%;  animation-delay: 0s; }
+        .note2 { top: 30%; right: 20%; animation-delay: 0.5s; }
+        .note3 { top: 60%; left: 25%;  animation-delay: 1s; }
+        .note4 { top: 70%; right: 15%; animation-delay: 1.5s; }
+        .note5 { top: 45%; left: 10%;  animation-delay: 0.8s; }
+        .note6 { top: 50%; right: 10%; animation-delay: 1.2s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0; }
+            25%      { opacity: 0.8; }
+            50%      { transform: translateY(-30px) rotate(15deg); opacity: 1; }
+            75%      { opacity: 0.8; }
         }
-        
-        body.dark-mode .form-group input,
-        body.dark-mode .form-group textarea,
-        body.dark-mode .form-group select,
-        body.dark-mode .spotify-results {
-            background: #34495e;
-            color: white;
-            border-color: #4a5f7f;
+
+
+        /* =========================================================
+           STATYSTYKI
+           ========================================================= */
+        .stats-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
-        
-        body.dark-mode .spotify-result-item {
-            background: #2c3e50;
+
+        .stat-box {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-align: center;
         }
-        
-        body.dark-mode .spotify-result-item:hover {
-            background: #34495e;
+
+        .stat-box-wide {
+            flex: 2;
+            min-width: 300px;
         }
-        
-        body.dark-mode .theme-toggle {
-            background: #34495e;
-            border-color: #4a5f7f;
+
+        .stat-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
         }
-        .dark-mode .stat-box {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        .stat-text {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
-        .dark-mode .top-artist-item {
-            background: rgba(255, 255, 255, 0.05);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
         }
-        
-        .dark-mode .top-artist-name,
-        .dark-mode .top-artist-count {
-            color: #fff;
+
+        .top-artist-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 6px;
         }
-        
-        .dark-mode .stat-label {
-            color: rgba(255, 255, 255, 0.7);
+
+        .top-artist-item:last-child {
+            margin-bottom: 0;
         }
-        /* Wyszukiwarka i losowe miejsce */
+
+        .top-artist-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .top-artist-count {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+
+        /* =========================================================
+           WYSZUKIWARKA, LOSOWANIE, FILTRY
+           ========================================================= */
         .search-random-panel {
             display: flex;
             gap: 15px;
             margin-bottom: 20px;
             flex-wrap: wrap;
         }
-        
+
         .search-box {
             flex: 1;
             min-width: 250px;
         }
-        
+
         .search-box input {
             width: 100%;
             padding: 12px 20px;
@@ -427,13 +238,13 @@
             transition: all 0.3s;
             background: white;
         }
-        
+
         .search-box input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
         }
-        
+
         .random-btn {
             padding: 12px 30px;
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -446,248 +257,497 @@
             transition: all 0.3s;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
-        
+
         .random-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 7px 20px rgba(0,0,0,0.3);
         }
-        
-        /* Tryb ciemny */
-        body.dark-mode .search-box input {
-            background: #34495e;
-            color: white;
-            border-color: #4a5f7f;
+
+        .filter-panel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
-        /* Modal losowania */
-        .dice-modal {
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+
+        /* =========================================================
+           OKIENKA (formularz dodawania, logowanie, nowe hasło)
+           ========================================================= */
+        .modal {
             display: none;
             position: fixed;
-            top: 0;
+            z-index: 9999;
             left: 0;
+            top: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 10000;
-            justify-content: center;
-            align-items: center;
+            background-color: rgba(0,0,0,0.7);
+            overflow-y: auto;
         }
-        
-        .dice-modal.show {
+
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease;
+            scrollbar-width: thin;                  /* Firefox */
+            scrollbar-color: #c5c3ef transparent;   /* Firefox */
+        }
+
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-track { background: transparent; }
+        .modal-content::-webkit-scrollbar-thumb { background: #c5c3ef; border-radius: 10px; }
+        .modal-content::-webkit-scrollbar-thumb:hover { background: #667eea; }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to   { transform: translateY(0);     opacity: 1; }
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        /* Pola w okienkach logowania i ustawień profilu */
+        .field {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .form-message {
+            display: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .form-message.error {
+            color: #e74c3c;
+            background: #fdecea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-submit:hover {
+            transform: scale(1.02);
+        }
+
+
+        /* =========================================================
+           WYSZUKIWARKA UTWORÓW (w formularzu dodawania)
+           ========================================================= */
+        .spotify-results {
+            max-height: 320px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: none;
+            scrollbar-width: thin;
+            scrollbar-color: #c5c3ef transparent;
+        }
+
+        .spotify-results.show {
+            display: block;
+        }
+
+        .spotify-results::-webkit-scrollbar { width: 6px; }
+        .spotify-results::-webkit-scrollbar-track { background: transparent; }
+        .spotify-results::-webkit-scrollbar-thumb { background: #c5c3ef; border-radius: 10px; }
+        .spotify-results::-webkit-scrollbar-thumb:hover { background: #667eea; }
+
+        .spotify-result-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
             display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s;
         }
-        
-        .dice-container {
+
+        .spotify-result-item:hover {
+            background: #f5f5f5;
+        }
+
+        .spotify-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .spotify-result-item.playing {
+            background: #ecebfa;
+        }
+
+        .spotify-result-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            object-fit: cover;
+        }
+
+        .spotify-result-info {
+            flex: 1;
+        }
+
+        .spotify-result-title {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .spotify-result-artist {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* Animowany korektor przy podglądzie */
+        .eq {
+            margin-left: auto;
+            padding-left: 10px;
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 16px;
+            opacity: 0.35;
+            transition: opacity 0.2s;
+        }
+
+        .eq i {
+            display: block;
+            width: 3px;
+            height: 4px;
+            background: #667eea;
+            border-radius: 2px;
+        }
+
+        .spotify-result-item.playing .eq {
+            opacity: 1;
+        }
+
+        .spotify-result-item.playing .eq i {
+            animation: eqBounce 0.9s ease-in-out infinite;
+        }
+
+        .spotify-result-item.playing .eq i:nth-child(2) { animation-delay: 0.2s; }
+        .spotify-result-item.playing .eq i:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes eqBounce {
+            0%, 100% { height: 4px; }
+            50%      { height: 16px; }
+        }
+
+
+        /* =========================================================
+           WYBÓR KATEGORII ("pigułki")
+           ========================================================= */
+        .category-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0 15px;
+        }
+
+        .category-chip {
+            padding: 7px 14px;
+            border: 2px solid var(--c);
+            border-radius: 20px;
+            background: white;
+            color: #444;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .category-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-chip.active {
+            background: var(--c);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+
+        /* =========================================================
+           POPUP NA MAPIE
+           ========================================================= */
+        .leaflet-popup-content * {
+            box-sizing: border-box;
+        }
+
+        .leaflet-popup-scrolled {
+            overflow-x: hidden;
+            overflow-y: auto;
+            border: none !important;
+            padding-right: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #c5c3ef transparent;
+        }
+
+        .leaflet-popup-scrolled::-webkit-scrollbar { width: 6px; }
+        .leaflet-popup-scrolled::-webkit-scrollbar-track { background: transparent; }
+        .leaflet-popup-scrolled::-webkit-scrollbar-thumb { background: #c5c3ef; border-radius: 10px; }
+        .leaflet-popup-scrolled::-webkit-scrollbar-thumb:hover { background: #667eea; }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 16px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Okładka z przyciskiem odtwarzania */
+        .cover-wrap {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .cover-wrap img,
+        .cover-placeholder {
+            display: block;
+            width: 100%;
+            height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .cover-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+
+        .cover-play {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            color: #667eea;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .cover-play:hover {
+            transform: scale(1.1);
+        }
+
+        .cover-play.playing {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Pulsowanie nowo dodanej / wylosowanej pinezki */
+        .marker-pulse {
+            animation: markerPulse 0.5s ease-in-out 4 !important;
+        }
+
+        @keyframes markerPulse {
+            0%, 100% { filter: drop-shadow(0 0 0px rgba(102, 126, 234, 0)) brightness(1); }
+            50%      { filter: drop-shadow(0 0 20px rgba(102, 126, 234, 1)) brightness(1.3); }
+        }
+
+
+        /* =========================================================
+           WYSZUKIWARKA LOKALIZACJI NA MAPIE
+           ========================================================= */
+        .geo-search {
+            position: relative;
+            width: 320px;
+        }
+
+        .geo-search input {
+            width: 100%;
+            padding: 11px 15px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            outline: none;
+        }
+
+        .geo-search input:focus {
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+        }
+
+        .geo-search-results {
+            display: none;
+            margin-top: 6px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .geo-search-results.show {
+            display: block;
+        }
+
+        .geo-result {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.15s;
+        }
+
+        .geo-result:last-child { border-bottom: none; }
+        .geo-result:hover { background: #ecebfa; }
+
+        .geo-result strong {
+            display: block;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .geo-result small {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .geo-empty {
+            padding: 12px 15px;
+            color: #999;
             text-align: center;
         }
-        
-        .dice {
-            font-size: 120px;
-            animation: rollDice 2s ease-in-out;
+
+        .search-pin {
+            font-size: 34px;
+            line-height: 1;
+            filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.4));
+            animation: searchPinDrop 0.5s ease;
         }
-        
-        @keyframes rollDice {
-            0%, 100% {
-                transform: rotate(0deg) scale(1);
-            }
-            25% {
-                transform: rotate(180deg) scale(1.3);
-            }
-            50% {
-                transform: rotate(360deg) scale(0.8);
-            }
-            75% {
-                transform: rotate(540deg) scale(1.3);
-            }
+
+        @keyframes searchPinDrop {
+            0%   { transform: translateY(-30px); opacity: 0; }
+            100% { transform: translateY(0);     opacity: 1; }
         }
-        
-        .dice-text {
+
+        .geo-add-btn {
+            margin-top: 8px;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            font-size: 24px;
             font-weight: bold;
-            margin-top: 20px;
-            animation: pulse 1s infinite;
+            cursor: pointer;
         }
-        
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.5;
-            }
-        }
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            h1 {
-                font-size: 20px !important;
-            }
-            
-            /* Mapa - pełna wysokość na telefonie */
-            #map {
-                height: 50vh;
-                border-radius: 10px;
-            }
-            
-            /* Statystyki - kolumna zamiast rzędu */
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-            
-            .stat-box {
-                padding: 12px;
-            }
-            
-            .stat-label {
-                font-size: 12px;
-            }
-            
-            .stat-value {
-                font-size: 20px;
-            }
-            
-            /* Top artyści */
-            .top-artist-item {
-                font-size: 13px;
-                padding: 8px;
-            }
-            
-            /* Wyszukiwarka i losuj */
-            .search-random-panel {
-                flex-direction: column;
-            }
-            
-            .search-box {
-                min-width: 100%;
-            }
-            
-            .random-btn {
-                width: 100%;
-            }
-            
-            /* Filtry - 2 kolumny */
-            .filter-panel {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
-            }
-            
-            .filter-btn {
-                padding: 10px;
-                font-size: 13px;
-            }
-            
-            /* Modal - pełny ekran */
-            .modal-content {
-                width: 95%;
-                margin: 5% auto;
-                padding: 15px;
-                max-height: 90vh;
-                overflow-y: auto;
-            }
-            
-            .modal-content h2 {
-                font-size: 20px;
-            }
-            
-            .form-group label {
-                font-size: 14px;
-            }
-            
-            .form-group input,
-            .form-group select,
-            .form-group textarea {
-                font-size: 14px;
-                padding: 10px;
-            }
-            
-            .btn-submit {
-                padding: 12px;
-                font-size: 14px;
-            }
-            
-            /* Spotify results */
-            .spotify-results {
-                max-height: 200px;
-            }
-            
-            .spotify-result-item {
-                padding: 8px;
-            }
-            
-            .spotify-result-image {
-                width: 40px;
-                height: 40px;
-            }
-            
-            .spotify-result-title {
-                font-size: 13px;
-            }
-            
-            .spotify-result-artist {
-                font-size: 11px;
-            }
-            
-            /* Theme toggle */
-            .theme-toggle {
-                width: 40px;
-                height: 40px;
-                font-size: 20px;
-            }
-            
-            /* Popup na mapie */
-            .leaflet-popup-content {
-                font-size: 13px;
-            }
-            
-            /* Kostka losowania */
-            .dice {
-                font-size: 80px !important;
-            }
-            
-            .dice-text {
-                font-size: 18px !important;
-            }
-        }
-        
-        /* Bardzo małe telefony */
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 18px !important;
-            }
-            
-            #map {
-                height: 40vh;
-            }
-            
-            .filter-panel {
-                grid-template-columns: 1fr;
-            }
-            
-            .stat-value {
-                font-size: 18px;
-            }
-            
-            .modal-content {
-                width: 98%;
-                margin: 2% auto;
-                padding: 10px;
-            }
-        }
-        
-        /* Landscape na telefonie */
-        @media (max-width: 768px) and (orientation: landscape) {
-            #map {
-                height: 60vh;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        /* Toast notification */
+
+
+        /* =========================================================
+           POWIADOMIENIA, ANIMACJE, OKIENKO POTWIERDZENIA
+           ========================================================= */
+        /* Toast (dymek na dole ekranu) */
         .toast {
             position: fixed;
             bottom: -100px;
@@ -706,833 +766,655 @@
             z-index: 10001;
             transition: bottom 0.5s ease-in-out;
         }
-        
+
         .toast.show {
             bottom: 30px;
         }
-        
+
         .toast-icon {
             font-size: 24px;
             animation: bounceIn 0.6s;
         }
-        
+
         @keyframes bounceIn {
-            0% {
-                transform: scale(0);
-            }
-            50% {
-                transform: scale(1.2);
-            }
-            100% {
-                transform: scale(1);
-            }
+            0%   { transform: scale(0); }
+            50%  { transform: scale(1.2); }
+            100% { transform: scale(1); }
         }
-        
-        /* Mobile */
-        @media (max-width: 768px) {
-            .toast {
-                font-size: 14px;
-                padding: 12px 20px;
-                max-width: 90%;
-            }
-        }
-        /* Splash Screen */
-        .splash-screen {
+
+        /* Losowanie miejsca (kostka) */
+        .dice-modal {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
             justify-content: center;
             align-items: center;
-            z-index: 10000;
-            animation: fadeOut 0.5s ease-in-out 2s forwards;
         }
-        
-        .splash-title {
-            color: white;
-            font-size: 48px;
+
+        .dice-modal.show {
+            display: flex;
+        }
+
+        .dice-container {
             text-align: center;
-            animation: slideDown 2s ease-in-out;
-            text-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
-        
-        @keyframes slideDown {
-            0% {
-                transform: scale(1.5);
-                opacity: 0;
-            }
-            50% {
-                transform: scale(1);
-                opacity: 1;
-            }
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
+
+        .dice {
+            font-size: 120px;
+            animation: rollDice 2s ease-in-out;
         }
-        
-        @keyframes fadeOut {
-            to {
-                opacity: 0;
-                visibility: hidden;
-            }
+
+        @keyframes rollDice {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25%      { transform: rotate(180deg) scale(1.3); }
+            50%      { transform: rotate(360deg) scale(0.8); }
+            75%      { transform: rotate(540deg) scale(1.3); }
         }
-        
-        /* Mobile */
+
+        .dice-text {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.5; }
+        }
+
+        /* Animacja zalogowania / wylogowania */
+        .auth-splash {
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 20, 60, 0.55);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10002;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .auth-splash.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .auth-splash-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 35px 50px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: scale(0.7);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .auth-splash.show .auth-splash-card {
+            transform: scale(1);
+        }
+
+        .auth-splash-icon {
+            font-size: 60px;
+            margin-bottom: 10px;
+            animation: splashBounce 0.8s ease;
+        }
+
+        .auth-splash-card h2 {
+            margin: 0 0 5px 0;
+            font-size: 26px;
+        }
+
+        .auth-splash-card p {
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        @keyframes splashBounce {
+            0%   { transform: scale(0) rotate(-20deg); }
+            60%  { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0); }
+        }
+
+        /* Okienko potwierdzenia (usuwanie) */
+        .confirm-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 20, 60, 0.55);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .confirm-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .confirm-card {
+            background: white;
+            width: 340px;
+            max-width: 90%;
+            padding: 30px 25px 25px;
+            border-radius: 18px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .confirm-modal.show .confirm-card {
+            transform: scale(1);
+        }
+
+        .confirm-icon {
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 12px;
+            border-radius: 50%;
+            background: #fdecea;
+            font-size: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-card h3 {
+            margin: 0 0 8px;
+            color: #333;
+        }
+
+        .confirm-card p {
+            margin: 0 0 20px;
+            color: #777;
+            font-size: 14px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            padding: 11px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+        }
+
+        .confirm-btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .confirm-cancel { background: #eee; color: #555; }
+        .confirm-danger { background: #e74c3c; color: white; }
+
+        /* Pływający przycisk ＋ */
+                    .add-place-fab {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: none;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 50%),
+                linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            font-size: 34px;
+            font-weight: bold;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow:
+                0 8px 24px rgba(245, 87, 108, 0.55),
+                0 2px 6px rgba(0, 0, 0, 0.25);
+            z-index: 1500;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            animation: fabPulse 2s ease-in-out 3;
+        }
+
+        .add-place-fab:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow:
+                0 12px 30px rgba(245, 87, 108, 0.65),
+                0 3px 8px rgba(0, 0, 0, 0.25);
+        }
+
+        @keyframes fabPulse {
+            0%, 100% { box-shadow: 0 8px 24px rgba(245, 87, 108, 0.55), 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 0 rgba(245, 87, 108, 0.5); }
+            50%      { box-shadow: 0 8px 24px rgba(245, 87, 108, 0.55), 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 16px rgba(245, 87, 108, 0); }
+        }
+
+        @keyframes fabPulse {
+            0%, 100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(245, 87, 108, 0.6); }
+            50%      { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 0 14px rgba(245, 87, 108, 0); }
+        }
+
+        .add-place-fab:hover {
+            transform: scale(1.08);
+        }
+
+        /* Tryb wybierania miejsca: przycisk zmienia się w "anuluj" */
+        .add-place-fab.active {
+            background: #e74c3c;
+            transform: rotate(45deg);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
+        }
+
+
+        /* =========================================================
+           PANEL PROFILU
+           ========================================================= */
+        .profile-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 360px;
+            max-width: 100%;
+            height: 100vh;
+            background: white;
+            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.35s ease;
+        }
+
+        .profile-panel.open {
+            transform: translateX(0);
+        }
+
+        .profile-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 35px 20px 20px;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 10px;
+            border-radius: 50%;
+            background: white;
+            color: #764ba2;
+            font-size: 36px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .profile-header h2 { margin: 0; }
+
+        .profile-since {
+            margin: 5px 0 15px;
+            opacity: 0.85;
+            font-size: 14px;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        .profile-stats div {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .profile-stats strong { font-size: 22px; }
+
+        .profile-stats span {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        .profile-tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .profile-tab {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 2px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            color: #888;
+            white-space: nowrap;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .profile-tab:hover { color: #667eea; }
+
+        .profile-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .profile-tab-content { padding: 15px; }
+
+        .profile-item {
+            background: #f7f7fb;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .profile-item:hover { background: #ecebfa; }
+        .profile-item small { color: #999; }
+
+        .profile-empty {
+            text-align: center;
+            color: #999;
+            padding: 20px 0;
+        }
+
+        .profile-delete-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 13px;
+            float: right;
+        }
+
+        .settings-label {
+            display: block;
+            font-weight: bold;
+        }
+
+        .settings-divider {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 20px 0;
+        }
+
+
+        /* =========================================================
+           TRYB NOCNY
+           ========================================================= */
+        body.dark-mode {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        }
+
+        body.dark-mode .container { color: white; }
+
+        body.dark-mode .info-box,
+        body.dark-mode .filter-btn {
+            background: #34495e;
+            color: white;
+            border-color: #4a5f7f;
+        }
+
+        body.dark-mode .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        body.dark-mode .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body.dark-mode .stat-label { color: rgba(255, 255, 255, 0.7); }
+
+        body.dark-mode .top-artist-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .top-artist-name,
+        body.dark-mode .top-artist-count { color: #fff; }
+
+        body.dark-mode .theme-toggle {
+            background: #34495e;
+            border-color: #4a5f7f;
+        }
+
+        body.dark-mode .search-box input {
+            background: #34495e;
+            color: white;
+            border-color: #4a5f7f;
+        }
+
+        /* Okienka */
+        body.dark-mode .modal-content {
+            background: #2c3e50;
+            color: white;
+        }
+
+        body.dark-mode .modal-content h2 { color: white; }
+        body.dark-mode .form-group label { color: white; }
+        body.dark-mode .close { color: white; }
+
+        body.dark-mode .form-group input,
+        body.dark-mode .form-group textarea,
+        body.dark-mode .field {
+            background: #34495e;
+            color: white;
+            border-color: #4a5f7f;
+        }
+
+        body.dark-mode .form-group input::placeholder,
+        body.dark-mode .form-group textarea::placeholder,
+        body.dark-mode .field::placeholder { color: #aaa; }
+
+        /* Wyszukiwarka utworów */
+        body.dark-mode .spotify-results {
+            background: #2d2d2d;
+            border-color: #444;
+        }
+
+        body.dark-mode .spotify-result-item { background: #2c3e50; }
+        body.dark-mode .spotify-result-item:hover { background: #3d3d3d; }
+        body.dark-mode .spotify-result-item.playing { background: #34344a; }
+        body.dark-mode .spotify-result-title { color: #fff; }
+        body.dark-mode .spotify-result-artist { color: #ccc; }
+        body.dark-mode .eq i { background: #a29bfe; }
+
+        /* Kategorie */
+        body.dark-mode .category-chip {
+            background: #2a2a3d;
+            color: #ddd;
+        }
+
+        body.dark-mode .category-chip.active {
+            background: var(--c);
+            color: white;
+        }
+
+        /* Profil */
+        body.dark-mode .profile-panel { background: #1e1e2e; color: #eee; }
+        body.dark-mode .profile-tabs { border-bottom-color: #333; }
+        body.dark-mode .profile-item { background: #2a2a3d; }
+        body.dark-mode .profile-item:hover { background: #34344a; }
+        body.dark-mode .settings-divider { border-top-color: #333; }
+
+        /* Okienko potwierdzenia */
+        body.dark-mode .confirm-card { background: #1e1e2e; }
+        body.dark-mode .confirm-card h3 { color: #eee; }
+        body.dark-mode .confirm-cancel { background: #34344a; color: #ddd; }
+
+        /* Wyszukiwarka na mapie */
+        body.dark-mode .geo-search input,
+        body.dark-mode .geo-search-results { background: #1e1e2e; color: #eee; }
+        body.dark-mode .geo-result { border-bottom-color: #333; }
+        body.dark-mode .geo-result:hover { background: #34344a; }
+        body.dark-mode .geo-result strong { color: #eee; }
+
+        /* Ciemna mapa: odwrócone kolory podkładu OpenStreetMap */
+        .leaflet-tile-pane {
+            transition: filter 0.4s ease;
+        }
+
+        body.dark-mode .leaflet-tile-pane {
+            filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+        }
+
+
+        /* =========================================================
+           TELEFON / TABLET
+           ========================================================= */
         @media (max-width: 768px) {
+            .container { padding: 10px; }
+
+            h1 { font-size: 20px !important; }
+
+            #map {
+                height: 50vh;
+                border-radius: 10px;
+            }
+
+            .stat-box { padding: 12px; }
+            .stat-label { font-size: 12px; }
+
+            .top-artist-item {
+                font-size: 13px;
+                padding: 8px;
+            }
+
+            .search-random-panel { flex-direction: column; }
+            .search-box { min-width: 100%; }
+            .random-btn { width: 100%; }
+
+            .filter-panel { gap: 8px; }
+
+            .filter-btn {
+                padding: 10px;
+                font-size: 13px;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 15px;
+            }
+
+            .modal-content h2 { font-size: 20px; }
+            .form-group label { font-size: 14px; }
+
+            .form-group input,
+            .form-group textarea {
+                font-size: 14px;
+                padding: 10px;
+            }
+
+            .btn-submit {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .spotify-results { max-height: 200px; }
+            .spotify-result-item { padding: 8px; }
+
+            .spotify-result-image {
+                width: 40px;
+                height: 40px;
+            }
+
+            .spotify-result-title { font-size: 13px; }
+            .spotify-result-artist { font-size: 11px; }
+
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+
+            .leaflet-popup-content { font-size: 13px; }
+
+            .dice { font-size: 80px !important; }
+            .dice-text { font-size: 18px !important; }
+
+            .toast {
+                font-size: 14px;
+                padding: 12px 20px;
+                max-width: 90%;
+            }
+
             .splash-title {
                 font-size: 28px;
                 padding: 20px;
             }
+
+            .note { font-size: 25px; }
+
+            .geo-search { width: calc(100vw - 90px); }
         }
-        /* Nutki animowane */
-        .music-notes {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
-        .note {
-            position: absolute;
-            font-size: 40px;
-            opacity: 0;
-            animation: float 3s ease-in-out infinite;
-        }
-        
-        .note1 {
-            top: 20%;
-            left: 15%;
-            animation-delay: 0s;
-        }
-        
-        .note2 {
-            top: 30%;
-            right: 20%;
-            animation-delay: 0.5s;
-        }
-        
-        .note3 {
-            top: 60%;
-            left: 25%;
-            animation-delay: 1s;
-        }
-        
-        .note4 {
-            top: 70%;
-            right: 15%;
-            animation-delay: 1.5s;
-        }
-        
-        .note5 {
-            top: 45%;
-            left: 10%;
-            animation-delay: 0.8s;
-        }
-        
-        .note6 {
-            top: 50%;
-            right: 10%;
-            animation-delay: 1.2s;
-        }
-        
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(0) rotate(0deg);
-                opacity: 0;
-            }
-            25% {
-                opacity: 0.8;
-            }
-            50% {
-                transform: translateY(-30px) rotate(15deg);
-                opacity: 1;
-            }
-            75% {
-                opacity: 0.8;
+
+        /* Bardzo małe telefony */
+        @media (max-width: 480px) {
+            h1 { font-size: 18px !important; }
+
+            #map { height: 40vh; }
+
+            .modal-content {
+                width: 98%;
+                margin: 2% auto;
+                padding: 10px;
             }
         }
-        @media (max-width: 768px) {
-            .note {
-                font-size: 25px;
-            }
+
+        /* Telefon poziomo */
+        @media (max-width: 768px) and (orientation: landscape) {
+            #map { height: 60vh; }
         }
-        .dark-mode .spotify-result-title {
-            color: #fff;
-        }
-        
-        .dark-mode .spotify-result-artist {
-            color: #ccc;
-        }
-        
-        .dark-mode .spotify-results {
-            background: #2d2d2d;
-            border-color: #444;
-        }
-        
-        .dark-mode .spotify-result-item:hover {
-            background: #3d3d3d;
-        }
-        .auth-splash {
-    position: fixed;
-    inset: 0;
-    background: rgba(30, 20, 60, 0.55);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.auth-splash.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.auth-splash-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 35px 50px;
-    border-radius: 20px;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    transform: scale(0.7);
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.auth-splash.show .auth-splash-card {
-    transform: scale(1);
-}
-
-.auth-splash-icon {
-    font-size: 60px;
-    margin-bottom: 10px;
-    animation: splashBounce 0.8s ease;
-}
-
-.auth-splash-card h2 {
-    margin: 0 0 5px 0;
-    font-size: 26px;
-}
-
-.auth-splash-card p {
-    margin: 0;
-    opacity: 0.9;
-}
-
-@keyframes splashBounce {
-    0%   { transform: scale(0) rotate(-20deg); }
-    60%  { transform: scale(1.2) rotate(10deg); }
-    100% { transform: scale(1) rotate(0); }
-}
-/* ===== PANEL PROFILU ===== */
-.profile-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 360px;
-    max-width: 100%;
-    height: 100vh;
-    background: white;
-    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.2);
-    z-index: 2000;
-    overflow-y: auto;
-    transform: translateX(100%);
-    transition: transform 0.35s ease;
-}
-
-.profile-panel.open {
-    transform: translateX(0);
-}
-
-.profile-close {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 30px;
-    cursor: pointer;
-    z-index: 1;
-}
-
-.profile-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    text-align: center;
-    padding: 35px 20px 20px;
-}
-
-.profile-avatar {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 10px;
-    border-radius: 50%;
-    background: white;
-    color: #764ba2;
-    font-size: 36px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
-.profile-header h2 {
-    margin: 0;
-}
-
-.profile-since {
-    margin: 5px 0 15px;
-    opacity: 0.85;
-    font-size: 14px;
-}
-
-.profile-stats {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-}
-
-.profile-stats div {
-    display: flex;
-    flex-direction: column;
-}
-
-.profile-stats strong {
-    font-size: 22px;
-}
-
-.profile-stats span {
-    font-size: 12px;
-    opacity: 0.85;
-}
-
-.profile-tabs {
-    display: flex;
-    border-bottom: 1px solid #eee;
-}
-
-.profile-tab {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 2px;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 12px;
-    color: #888;
-    white-space: nowrap;
-    transition: color 0.2s, border-color 0.2s;
-}
-
-.profile-tab:hover {
-    color: #667eea;
-}
-
-.tab-icon {
-    font-size: 18px;
-    line-height: 1;
-}
-
-.profile-tab.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
-}
-
-.profile-tab-content {
-    padding: 15px;
-}
-
-.profile-item {
-    background: #f7f7fb;
-    padding: 12px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.profile-item:hover {
-    background: #ecebfa;
-}
-
-.profile-item small {
-    color: #999;
-}
-
-.profile-empty {
-    text-align: center;
-    color: #999;
-    padding: 20px 0;
-}
-
-.profile-delete-btn {
-    background: none;
-    border: none;
-    color: #e74c3c;
-    cursor: pointer;
-    font-size: 13px;
-    float: right;
-}
-
-/* Tryb nocny */
-.dark-mode .profile-panel { background: #1e1e2e; color: #eee; }
-.dark-mode .profile-tabs { border-bottom-color: #333; }
-.dark-mode .profile-item { background: #2a2a3d; }
-.dark-mode .profile-item:hover { background: #34344a; }
-/* ===== OKIENKO POTWIERDZENIA ===== */
-.confirm-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(30, 20, 60, 0.55);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-}
-
-.confirm-modal.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.confirm-card {
-    background: white;
-    width: 340px;
-    max-width: 90%;
-    padding: 30px 25px 25px;
-    border-radius: 18px;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    transform: scale(0.8);
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.confirm-modal.show .confirm-card {
-    transform: scale(1);
-}
-
-.confirm-icon {
-    width: 70px;
-    height: 70px;
-    margin: 0 auto 12px;
-    border-radius: 50%;
-    background: #fdecea;
-    font-size: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.confirm-card h3 {
-    margin: 0 0 8px;
-    color: #333;
-}
-
-.confirm-card p {
-    margin: 0 0 20px;
-    color: #777;
-    font-size: 14px;
-}
-
-.confirm-buttons {
-    display: flex;
-    gap: 10px;
-}
-
-.confirm-btn {
-    flex: 1;
-    padding: 11px;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: transform 0.15s, opacity 0.15s;
-}
-
-.confirm-btn:hover {
-    transform: translateY(-2px);
-    opacity: 0.9;
-}
-
-.confirm-cancel {
-    background: #eee;
-    color: #555;
-}
-
-.confirm-danger {
-    background: #e74c3c;
-    color: white;
-}
-
-/* Tryb nocny */
-.dark-mode .confirm-card { background: #1e1e2e; }
-.dark-mode .confirm-card h3 { color: #eee; }
-.dark-mode .confirm-cancel { background: #34344a; color: #ddd; }
-/* ===== POPUP NA MAPIE ===== */
-/* Wszystko w popupie liczy szerokość razem z odstępami: koniec z poziomym paskiem */
-.leaflet-popup-content * {
-    box-sizing: border-box;
-}
-
-/* Popup z przewijaniem: tylko w pionie, cienki pasek w kolorze strony */
-.leaflet-popup-scrolled {
-    overflow-x: hidden;
-    overflow-y: auto;
-    border: none !important;
-    padding-right: 6px;
-    scrollbar-width: thin;                     /* Firefox */
-    scrollbar-color: #c5c3ef transparent;      /* Firefox */
-}
-
-.leaflet-popup-scrolled::-webkit-scrollbar {
-    width: 6px;
-}
-
-.leaflet-popup-scrolled::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.leaflet-popup-scrolled::-webkit-scrollbar-thumb {
-    background: #c5c3ef;
-    border-radius: 10px;
-}
-
-.leaflet-popup-scrolled::-webkit-scrollbar-thumb:hover {
-    background: #667eea;
-}
-
-/* Zaokrąglony popup z cieniem w stylu reszty strony */
-.leaflet-popup-content-wrapper {
-    border-radius: 16px;
-    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
-}
-/* ===== PODGLĄD UTWORU W WYSZUKIWARCE ===== */
-.spotify-result-item {
-    display: flex;
-    align-items: center;
-}
-.spotify-result-item.playing {
-    background: #ecebfa;
-}
-
-.dark-mode .spotify-result-item.playing {
-    background: #34344a;
-}
-/* Animowany korektor przy podglądzie */
-.eq {
-    margin-left: auto;
-    padding-left: 10px;
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    height: 16px;
-    opacity: 0.35;
-    transition: opacity 0.2s;
-}
-
-.eq i {
-    display: block;
-    width: 3px;
-    height: 4px;
-    background: #667eea;
-    border-radius: 2px;
-}
-
-.spotify-result-item.playing .eq {
-    opacity: 1;
-}
-
-.spotify-result-item.playing .eq i {
-    animation: eqBounce 0.9s ease-in-out infinite;
-}
-
-.spotify-result-item.playing .eq i:nth-child(2) { animation-delay: 0.2s; }
-.spotify-result-item.playing .eq i:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes eqBounce {
-    0%, 100% { height: 4px; }
-    50%      { height: 16px; }
-}
-
-.dark-mode .eq i {
-    background: #a29bfe;
-}
-/* ===== WYBÓR KATEGORII ===== */
-.category-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 8px 0 15px;
-}
-
-.category-chip {
-    padding: 7px 14px;
-    border: 2px solid var(--c);
-    border-radius: 20px;
-    background: white;
-    color: #444;
-    font-weight: bold;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.category-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.category-chip.active {
-    background: var(--c);
-    color: white;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.dark-mode .category-chip {
-    background: #2a2a3d;
-    color: #ddd;
-}
-
-.dark-mode .category-chip.active {
-    background: var(--c);
-    color: white;
-}
-/* ===== OKŁADKA Z PRZYCISKIEM ODTWARZANIA ===== */
-.cover-wrap {
-    position: relative;
-    margin-bottom: 10px;
-}
-
-.cover-wrap img,
-.cover-placeholder {
-    display: block;
-    width: 100%;
-    height: 130px;
-    object-fit: cover;
-    border-radius: 8px;
-}
-
-.cover-placeholder {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 40px;
-}
-
-.cover-play {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: none;
-    background: white;
-    color: #667eea;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s, background 0.2s;
-}
-
-.cover-play:hover {
-    transform: scale(1.1);
-}
-
-.cover-play.playing {
-    background: #667eea;
-    color: white;
-}
-/* ===== PRZEWIJANE OKIENKA (dodawanie miejsca, logowanie) ===== */
-.modal {
-    overflow-y: auto;
-}
-
-.modal-content {
-    max-height: 90vh;
-    overflow-y: auto;
-    scrollbar-width: thin;                  /* Firefox */
-    scrollbar-color: #c5c3ef transparent;   /* Firefox */
-}
-
-.modal-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.modal-content::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.modal-content::-webkit-scrollbar-thumb {
-    background: #c5c3ef;
-    border-radius: 10px;
-}
-
-.modal-content::-webkit-scrollbar-thumb:hover {
-    background: #667eea;
-}
-/* ===== PŁYWAJĄCY PRZYCISK DODAWANIA ===== */
-.add-place-fab {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    font-size: 32px;
-    line-height: 1;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-    z-index: 1500;
-    transition: transform 0.25s ease, background 0.25s ease;
-}
-
-.add-place-fab:hover {
-    transform: scale(1.08);
-}
-
-/* Tryb wybierania miejsca: przycisk zmienia się w "anuluj" */
-.add-place-fab.active {
-    background: #e74c3c;
-    transform: rotate(45deg);
-    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
-}
-
-/* Celownik nad mapą w trybie wybierania */
-#map.picking {
-    cursor: crosshair;
-}
-/* ===== WYSZUKIWARKA NA MAPIE ===== */
-.geo-search {
-    position: relative;
-    width: 320px;
-}
-
-.geo-search input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 11px 15px;
-    border: none;
-    border-radius: 25px;
-    font-size: 14px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    outline: none;
-}
-
-.geo-search input:focus {
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
-}
-
-.geo-search-results {
-    display: none;
-    margin-top: 6px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-}
-
-.geo-search-results.show {
-    display: block;
-}
-
-.geo-result {
-    padding: 10px 15px;
-    cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
-    transition: background 0.15s;
-}
-
-.geo-result:last-child {
-    border-bottom: none;
-}
-
-.geo-result:hover {
-    background: #ecebfa;
-}
-
-.geo-result strong {
-    display: block;
-    font-size: 14px;
-    color: #333;
-}
-
-.geo-result small {
-    color: #888;
-    font-size: 12px;
-}
-
-.geo-empty {
-    padding: 12px 15px;
-    color: #999;
-    text-align: center;
-}
-
-/* Znacznik wyszukanego miejsca */
-.search-pin {
-    font-size: 34px;
-    line-height: 1;
-    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.4));
-    animation: searchPinDrop 0.5s ease;
-}
-
-@keyframes searchPinDrop {
-    0%   { transform: translateY(-30px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
-}
-
-.geo-add-btn {
-    margin-top: 8px;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-/* Telefon: wyszukiwarka na prawie całą szerokość */
-@media (max-width: 768px) {
-    .geo-search {
-        width: calc(100vw - 90px);
-    }
-}
-
-/* Tryb nocny */
-.dark-mode .geo-search input,
-.dark-mode .geo-search-results { background: #1e1e2e; color: #eee; }
-.dark-mode .geo-result { border-bottom-color: #333; }
-.dark-mode .geo-result:hover { background: #34344a; }
-.dark-mode .geo-result strong { color: #eee; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
 </head>
 <body>
+
+    <!-- ===== EKRAN POWITALNY ===== -->
     <div id="splashScreen" class="splash-screen">
         <div class="music-notes">
             <span class="note note1">🎵</span>
@@ -1542,33 +1424,39 @@
             <span class="note note5">🎵</span>
             <span class="note note6">🎶</span>
         </div>
-        <h1 class="splash-title"> Mapify </h1>
+        <h1 class="splash-title">Mapify</h1>
     </div>
+
+
+    <!-- ===== STRONA GŁÓWNA ===== -->
     <div class="container">
+
+        <!-- Nagłówek -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin: 0;"> Mapify </h1>
-             <div style="display: flex; align-items: center; gap: 10px;">
+            <h1 style="margin: 0;">Mapify</h1>
+            <div style="display: flex; align-items: center; gap: 10px;">
                 <span id="userEmail" onclick="openProfile()" title="Mój profil"
-      style="color: white; cursor: pointer; font-weight: bold; text-decoration: underline;"></span>
+                      style="color: white; cursor: pointer; font-weight: bold; text-decoration: underline;"></span>
                 <button id="authBtn" onclick="handleAuthButton()"
                         style="background: white; color: #667eea; border: none; padding: 10px 18px;
                                border-radius: 20px; font-weight: bold; cursor: pointer;">
                     Zaloguj
                 </button>
-                <button id="themeToggle" class="theme-toggle">
+                <button id="themeToggle" class="theme-toggle" title="Tryb jasny / nocny">
                     <span class="theme-icon">🌙</span>
                 </button>
             </div>
         </div>
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+
+        <!-- Pasek informacyjny -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
             🎵 <strong>Kliknij ＋ albo dwukrotnie na mapę</strong>, żeby dodać miejsce ze swoją muzyką.
             <a href="https://github.com/lukaszskotniczny/mapify" target="_blank" style="color: white; text-decoration: underline; margin-left: 10px;">
                 Kod na GitHub
             </a>
         </div>
-        
-        <!-- Panel statystyk -->
-        <!-- Panel statystyk -->
+
+        <!-- Statystyki -->
         <div class="stats-panel">
             <div class="stat-box">
                 <div class="stat-number" id="totalPlaces">0</div>
@@ -1583,273 +1471,232 @@
                 <div id="topArtists" style="font-size: 14px; text-align: left;">-</div>
             </div>
         </div>
+
+        <!-- Wyszukiwarka i losowanie -->
         <div class="search-random-panel">
             <div class="search-box">
                 <input type="text" id="placeSearch" placeholder="🔍 Szukaj miejsca (utwór, artysta...)">
             </div>
-            <button class="random-btn" onclick="randomPlace()">
-                🎲 Losuj miejsce
-            </button>
-            <div id="toast" class="toast">
-            <span class="toast-icon">✅</span>
-            <span class="toast-message"></span>
+            <button class="random-btn" onclick="randomPlace()">🎲 Losuj miejsce</button>
         </div>
-        
+
+        <!-- Filtry kategorii -->
+        <div class="filter-panel">
+            <button class="filter-btn active" onclick="filterByCategory('all')">🌍 Wszystkie</button>
+            <button class="filter-btn" onclick="filterByCategory('bieganie')">🏃 Bieganie</button>
+            <button class="filter-btn" onclick="filterByCategory('randka')">❤️ Randka</button>
+            <button class="filter-btn" onclick="filterByCategory('nostalgiczne')">😌 Nostalgiczne</button>
+            <button class="filter-btn" onclick="filterByCategory('trening')">💪 Trening</button>
+            <button class="filter-btn" onclick="filterByCategory('relaks')">🧘 Relaks</button>
+            <button class="filter-btn" onclick="filterByCategory('impreza')">🎉 Impreza</button>
+            <button class="filter-btn" onclick="filterByCategory('inne')">📌 Inne</button>
+        </div>
+
+        <!-- Mapa -->
+        <div id="map"></div>
+
+        <!-- Instrukcja -->
+        <div class="info-box">
+            <h3>Jak używać:</h3>
+            <p>Kliknij ＋ w rogu ekranu (albo dwukrotnie na mapę), żeby dodać miejsce ze swoją muzyką. Wyszukiwarka na mapie pomoże znaleźć konkretne miejsce.</p>
+        </div>
     </div>
-     <div id="authModal" class="modal">
+
+
+    <!-- ===== FORMULARZ DODAWANIA MIEJSCA ===== -->
+    <div id="addPlaceModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddPlaceModal()">&times;</span>
+            <h2>🎵 Dodaj miejsce muzyczne</h2>
+            <form id="addPlaceForm">
+                <div class="form-group">
+                    <label for="spotifySearch">Wyszukaj utwór:</label>
+                    <input type="text" id="spotifySearch" placeholder="Wpisz nazwę utworu lub artystę...">
+                    <div id="spotifyResults" class="spotify-results"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="songTitle">Wybrany utwór:</label>
+                    <input type="text" id="songTitle" required readonly>
+                    <input type="hidden" id="artist">
+                    <input type="hidden" id="spotifyUrl">
+                    <input type="hidden" id="albumImage">
+                    <input type="hidden" id="previewUrl">
+                    <input type="hidden" id="trackId">
+                </div>
+
+                <div class="form-group">
+                    <label>Kategoria:</label>
+                    <div class="category-chips">
+                        <button type="button" class="category-chip active" data-value="bieganie" style="--c: #3498db;">🏃 Bieganie</button>
+                        <button type="button" class="category-chip" data-value="randka" style="--c: #e74c3c;">❤️ Randka</button>
+                        <button type="button" class="category-chip" data-value="nostalgiczne" style="--c: #9b59b6;">😌 Nostalgiczne</button>
+                        <button type="button" class="category-chip" data-value="trening" style="--c: #2ecc71;">💪 Trening</button>
+                        <button type="button" class="category-chip" data-value="relaks" style="--c: #1abc9c;">🧘 Relaks</button>
+                        <button type="button" class="category-chip" data-value="impreza" style="--c: #f39c12;">🎉 Impreza</button>
+                        <button type="button" class="category-chip" data-value="inne" style="--c: #95a5a6;">📌 Inne</button>
+                    </div>
+                    <input type="hidden" id="category" value="bieganie">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Dlaczego to miejsce?</label>
+                    <textarea id="description" rows="3" placeholder="Opcjonalne..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit">Dodaj miejsce</button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ===== LOGOWANIE / REJESTRACJA / RESET HASŁA ===== -->
+    <div id="authModal" class="modal">
         <div class="modal-content" style="max-width: 380px;">
-            <span onclick="closeAuthModal()" style="float: right; font-size: 28px; cursor: pointer;">&times;</span>
+            <span class="close" onclick="closeAuthModal()">&times;</span>
             <h2 id="authTitle">Logowanie</h2>
-            <input type="text" id="authNickname" placeholder="Nick (3-20 znaków)"
-       style="display: none; width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
 
-            <input type="email" id="authEmail" placeholder="Email"
-                   style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-                        <input type="password" id="authPassword" placeholder="Hasło (min. 6 znaków)"
-                   style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-                   <p id="authForgotWrap" style="text-align: right; margin: 0 0 5px;">
-    <a href="#" onclick="setAuthMode('forgot'); return false;" style="font-size: 13px;">Nie pamiętasz hasła?</a>
-</p>
+            <input type="text" id="authNickname" class="field" placeholder="Nick (3-20 znaków)" style="display: none;">
+            <input type="email" id="authEmail" class="field" placeholder="Email">
+            <input type="password" id="authPassword" class="field" placeholder="Hasło (min. 6 znaków)">
 
-            <p id="authError" style="display: none; color: #e74c3c; background: #fdecea;
-               padding: 8px 10px; border-radius: 5px; font-size: 14px; margin: 5px 0;"></p>
+            <p id="authForgotWrap" style="text-align: right; margin: 0 0 5px;">
+                <a href="#" onclick="setAuthMode('forgot'); return false;" style="font-size: 13px;">Nie pamiętasz hasła?</a>
+            </p>
 
-            <button id="authSubmit" onclick="submitAuth()"
-                    style="width: 100%; padding: 10px; background: #667eea; color: white;
-                           border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
-                Zaloguj
-            </button>
+            <p id="authError" class="form-message error"></p>
+
+            <button id="authSubmit" class="btn-primary" onclick="submitAuth()">Zaloguj</button>
 
             <p style="text-align: center; margin-top: 12px;">
                 <a href="#" id="authSwitch" onclick="toggleAuthMode(); return false;">Nie masz konta? Zarejestruj się</a>
             </p>
         </div>
     </div>
+
+
+    <!-- ===== NOWE HASŁO (po kliknięciu linku z maila) ===== -->
+    <div id="newPasswordModal" class="modal">
+        <div class="modal-content" style="max-width: 380px;">
+            <h2>🔑 Ustaw nowe hasło</h2>
+            <input type="password" id="resetPassword" class="field" placeholder="Nowe hasło (min. 6 znaków)">
+            <input type="password" id="resetPasswordRepeat" class="field" placeholder="Powtórz nowe hasło">
+            <p id="resetError" class="form-message error"></p>
+            <button class="btn-primary" onclick="saveNewPassword()">Zapisz nowe hasło</button>
+        </div>
+    </div>
+
+
+    <!-- ===== PANEL PROFILU ===== -->
+    <div id="profilePanel" class="profile-panel">
+        <button class="profile-close" onclick="closeProfile()">&times;</button>
+
+        <div class="profile-header">
+            <div class="profile-avatar" id="profileAvatar">?</div>
+            <h2 id="profileNick">Nick</h2>
+            <p id="profileSince" class="profile-since"></p>
+            <div class="profile-stats">
+                <div><strong id="statPlaces">0</strong><span>miejsc</span></div>
+                <div><strong id="statLikes">0</strong><span>polubień</span></div>
+                <div><strong id="statComments">0</strong><span>komentarzy</span></div>
+            </div>
+        </div>
+
+        <div class="profile-tabs">
+            <button class="profile-tab active" data-tab="places" onclick="switchProfileTab('places')">
+                <span class="tab-icon">📍</span>Miejsca
+            </button>
+            <button class="profile-tab" data-tab="liked" onclick="switchProfileTab('liked')">
+                <span class="tab-icon">❤️</span>Polubione
+            </button>
+            <button class="profile-tab" data-tab="comments" onclick="switchProfileTab('comments')">
+                <span class="tab-icon">💬</span>Komentarze
+            </button>
+            <button class="profile-tab" data-tab="settings" onclick="switchProfileTab('settings')">
+                <span class="tab-icon">⚙️</span>Ustawienia
+            </button>
+        </div>
+
+        <div id="profileTab-places" class="profile-tab-content"></div>
+        <div id="profileTab-liked" class="profile-tab-content" style="display: none;"></div>
+        <div id="profileTab-comments" class="profile-tab-content" style="display: none;"></div>
+
+        <div id="profileTab-settings" class="profile-tab-content" style="display: none;">
+            <!-- Zmiana nicku -->
+            <label class="settings-label" for="newNickname">Zmień nick</label>
+            <input type="text" id="newNickname" class="field" placeholder="Nowy nick (3-20 znaków)">
+            <p id="nickMessage" class="form-message"></p>
+            <button class="btn-primary" onclick="changeNickname()">Zapisz</button>
+
+            <hr class="settings-divider">
+
+            <!-- Zmiana hasła -->
+            <label class="settings-label" for="currentPassword">Zmień hasło</label>
+            <input type="password" id="currentPassword" class="field" placeholder="Obecne hasło">
+            <input type="password" id="newPassword" class="field" placeholder="Nowe hasło (min. 6 znaków)">
+            <input type="password" id="newPasswordRepeat" class="field" placeholder="Powtórz nowe hasło">
+            <p id="passwordMessage" class="form-message"></p>
+            <button class="btn-primary" onclick="changePassword()">Zmień hasło</button>
+
+            <hr class="settings-divider">
+
+            <!-- Usuwanie konta -->
+            <label class="settings-label" for="deletePassword" style="color: #e74c3c;">⚠️ Strefa niebezpieczna</label>
+            <p style="font-size: 13px; color: #888; margin: 6px 0;">
+                Usunięcie konta usunie też Twoje miejsca, polubienia i komentarze. Tej operacji nie można cofnąć.
+            </p>
+            <input type="password" id="deletePassword" class="field" placeholder="Podaj hasło, żeby potwierdzić">
+            <p id="deleteMessage" class="form-message"></p>
+            <button class="btn-primary btn-danger" onclick="deleteAccount()">Usuń konto</button>
+        </div>
+    </div>
+
+
+    <!-- ===== OKIENKO POTWIERDZENIA ===== -->
+    <div id="confirmModal" class="confirm-modal">
+        <div class="confirm-card">
+            <div class="confirm-icon">🗑️</div>
+            <h3 id="confirmTitle">Na pewno?</h3>
+            <p id="confirmText"></p>
+            <div class="confirm-buttons">
+                <button id="confirmCancel" class="confirm-btn confirm-cancel">Anuluj</button>
+                <button id="confirmOk" class="confirm-btn confirm-danger">Usuń</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ===== ANIMACJA ZALOGOWANIA / WYLOGOWANIA ===== -->
     <div id="authSplash" class="auth-splash">
-    <div class="auth-splash-card">
-        <div class="auth-splash-icon" id="authSplashIcon">👋</div>
-        <h2 id="authSplashTitle">Witaj!</h2>
-        <p id="authSplashText">Zalogowano pomyślnie</p>
-    </div>
-</div>
-<div id="profilePanel" class="profile-panel">
-    <button class="profile-close" onclick="closeProfile()">&times;</button>
-
-    <div class="profile-header">
-        <div class="profile-avatar" id="profileAvatar">?</div>
-        <h2 id="profileNick">Nick</h2>
-        <p id="profileSince" class="profile-since"></p>
-                <div class="profile-stats">
-            <div><strong id="statPlaces">0</strong><span>miejsc</span></div>
-            <div><strong id="statLikes">0</strong><span>polubień</span></div>
-            <div><strong id="statComments">0</strong><span>komentarzy</span></div>
+        <div class="auth-splash-card">
+            <div class="auth-splash-icon" id="authSplashIcon">👋</div>
+            <h2 id="authSplashTitle">Witaj!</h2>
+            <p id="authSplashText">Zalogowano pomyślnie</p>
         </div>
     </div>
 
-           <div class="profile-tabs">
-        <button class="profile-tab active" data-tab="places" onclick="switchProfileTab('places')">
-            <span class="tab-icon">📍</span>Miejsca
-        </button>
-        <button class="profile-tab" data-tab="liked" onclick="switchProfileTab('liked')">
-            <span class="tab-icon">❤️</span>Polubione
-        </button>
-        <button class="profile-tab" data-tab="comments" onclick="switchProfileTab('comments')">
-            <span class="tab-icon">💬</span>Komentarze
-        </button>
-        <button class="profile-tab" data-tab="settings" onclick="switchProfileTab('settings')">
-            <span class="tab-icon">⚙️</span>Ustawienia
-        </button>
-    </div>
 
-    <div id="profileTab-places" class="profile-tab-content"></div>
-
-    <div id="profileTab-liked" class="profile-tab-content"></div>
-    <div id="profileTab-comments" class="profile-tab-content" style="display: none;"></div>
-    <div id="profileTab-settings" class="profile-tab-content" style="display: none;">
-        <label style="font-weight: bold;">Zmień nick</label>
-        <input type="text" id="newNickname" placeholder="Nowy nick (3-20 znaków)"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <p id="nickMessage" style="display: none; padding: 8px 10px; border-radius: 5px; font-size: 14px;"></p>
-        <button onclick="changeNickname()"
-                style="width: 100%; padding: 10px; background: #667eea; color: white;
-                       border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
-             Zapisz
-        </button>
-
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-
-        <label style="font-weight: bold;">Zmień hasło</label>
-        <input type="password" id="currentPassword" placeholder="Obecne hasło"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <input type="password" id="newPassword" placeholder="Nowe hasło (min. 6 znaków)"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <input type="password" id="newPasswordRepeat" placeholder="Powtórz nowe hasło"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <p id="passwordMessage" style="display: none; padding: 8px 10px; border-radius: 5px; font-size: 14px;"></p>
-        <button onclick="changePassword()"
-                style="width: 100%; padding: 10px; background: #667eea; color: white;
-                       border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
-            Zmień hasło
-        </button>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-
-<label style="font-weight: bold; color: #e74c3c;">⚠️ Strefa niebezpieczna</label>
-<p style="font-size: 13px; color: #888; margin: 6px 0;">
-    Usunięcie konta usunie też Twoje miejsca, polubienia i komentarze. Tej operacji nie można cofnąć.
-</p>
-<input type="password" id="deletePassword" placeholder="Podaj hasło, żeby potwierdzić"
-       style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-<p id="deleteMessage" style="display: none; color: #e74c3c; background: #fdecea;
-   padding: 8px 10px; border-radius: 5px; font-size: 14px;"></p>
-<button onclick="deleteAccount()"
-        style="width: 100%; padding: 10px; background: #e74c3c; color: white;
-               border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
-    Usuń konto
-</button>
-    </div>
-</div>
-    </div>
-</div>
-
-<div id="confirmModal" class="confirm-modal">
-    <div class="confirm-card">
-        <div class="confirm-icon">🗑️</div>
-        <h3 id="confirmTitle">Na pewno?</h3>
-        <p id="confirmText"></p>
-        <div class="confirm-buttons">
-            <button id="confirmCancel" class="confirm-btn confirm-cancel">Anuluj</button>
-            <button id="confirmOk" class="confirm-btn confirm-danger">Usuń</button>
+    <!-- ===== LOSOWANIE (kostka) ===== -->
+    <div id="diceModal" class="dice-modal">
+        <div class="dice-container">
+            <div class="dice">🎲</div>
+            <p class="dice-text">Losowanie...</p>
         </div>
     </div>
-</div>
-<div id="newPasswordModal" class="modal">
-    <div class="modal-content" style="max-width: 380px;">
-        <h2>🔑 Ustaw nowe hasło</h2>
-        <input type="password" id="resetPassword" placeholder="Nowe hasło (min. 6 znaków)"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <input type="password" id="resetPasswordRepeat" placeholder="Powtórz nowe hasło"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <p id="resetError" style="display: none; color: #e74c3c; background: #fdecea;
-           padding: 8px 10px; border-radius: 5px; font-size: 14px; margin: 5px 0;"></p>
-        <button onclick="saveNewPassword()"
-                style="width: 100%; padding: 10px; background: #667eea; color: white;
-                       border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
-            Zapisz nowe hasło
-        </button>
+
+
+    <!-- ===== POWIADOMIENIE (toast) ===== -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✅</span>
+        <span class="toast-message"></span>
     </div>
-</div>
-<button id="addPlaceBtn" class="add-place-fab" onclick="toggleAddPlaceMode()" title="Dodaj miejsce">＋</button>
+
+
+    <!-- ===== PRZYCISK ＋ ===== -->
+    <button id="addPlaceBtn" class="add-place-fab" onclick="toggleAddPlaceMode()" title="Dodaj miejsce">＋</button>
+
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        </div>
-        <div class="filter-panel">
-            <button class="filter-btn active" onclick="filterByCategory('all')">
-                🌍 Wszystkie
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('bieganie')">
-                🏃 Bieganie
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('randka')">
-                ❤️ Randka
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('nostalgiczne')">
-                😌 Nostalgiczne
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('trening')">
-                💪 Trening
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('relaks')">
-                🧘 Relaks
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('impreza')">
-                🎉 Impreza
-            </button>
-            <button class="filter-btn" onclick="filterByCategory('inne')">
-                📌 Inne
-            </button>
-        </div>
-        
-        <div id="map"></div>
-        <div class="info-box">
-            <h3>Jak używać:</h3>
-            <p>Kliknij dwukrotnie na mapę, żeby dodać miejsce z Twoją ulubioną muzyką!</p>
-        </div>
-
-       <!-- Modal do dodawania miejsca -->
-        <div id="addPlaceModal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeAddPlaceModal()">&times;</span>
-                <h2>🎵 Dodaj miejsce muzyczne</h2>
-                <form id="addPlaceForm">
-                    <div class="form-group">
-                        <label for="spotifySearch">Wyszukaj utwór w Spotify:</label>
-                        <input type="text" id="spotifySearch" placeholder="Wpisz nazwę utworu lub artystę...">
-                        <div id="spotifyResults" class="spotify-results"></div>
-                    </div>
-                    <div id="authModal" class="modal">
-    <div class="modal-content" style="max-width: 380px;">
-        <span onclick="closeAuthModal()" style="float: right; font-size: 28px; cursor: pointer;">&times;</span>
-        <h2 id="authTitle">Logowanie</h2>
-
-        <input type="email" id="authEmail" placeholder="Email"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-        <input type="password" id="authPassword" placeholder="Hasło (min. 6 znaków)"
-               style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px;">
-
-        <button id="authSubmit" onclick="submitAuth()"
-                style="width: 100%; padding: 10px; background: #667eea; color: white;
-                       border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
-            Zaloguj
-        </button>
-
-        <p style="text-align: center; margin-top: 12px;">
-            <a href="#" id="authSwitch" onclick="toggleAuthMode(); return false;">Nie masz konta? Zarejestruj się</a>
-        </p>
-    </div>
-</div>
-                    
-                    <div class="form-group">
-                        <label for="songTitle">Wybrany utwór:</label>
-                        <input type="text" id="songTitle" required readonly>
-                        <input type="hidden" id="artist">
-                        <input type="hidden" id="spotifyUrl">
-                        <input type="hidden" id="albumImage">
-                        <input type="hidden" id="previewUrl"> 
-                        <input type="hidden" id="trackId">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="category">Kategoria:</label>
-                        <div class="category-chips">
-    <button type="button" class="category-chip active" data-value="bieganie" style="--c: #3498db;">🏃 Bieganie</button>
-    <button type="button" class="category-chip" data-value="randka" style="--c: #e74c3c;">❤️ Randka</button>
-    <button type="button" class="category-chip" data-value="nostalgiczne" style="--c: #9b59b6;">😌 Nostalgiczne</button>
-    <button type="button" class="category-chip" data-value="trening" style="--c: #2ecc71;">💪 Trening</button>
-    <button type="button" class="category-chip" data-value="relaks" style="--c: #1abc9c;">🧘 Relaks</button>
-    <button type="button" class="category-chip" data-value="impreza" style="--c: #f39c12;">🎉 Impreza</button>
-    <button type="button" class="category-chip" data-value="inne" style="--c: #95a5a6;">📌 Inne</button>
-</div>
-<input type="hidden" id="category" value="bieganie">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="description">Dlaczego to miejsce?</label>
-                        <textarea id="description" rows="3" placeholder="Opcjonalne..."></textarea>
-                    </div>
-                    
-                    <button type="submit" class="btn-submit">Dodaj miejsce</button>
-                </form>
-            </div>
-        </div>
-        <div id="diceModal" class="dice-modal">
-            <div class="dice-container">
-                <div class="dice">🎲</div>
-                <p class="dice-text">Losowanie...</p>
-            </div>
-        
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
 </body>
 </html>
